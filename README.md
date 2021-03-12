@@ -7,7 +7,9 @@ Oversterfte data van Nederland.
 Uitdaging zat in het correct weergeven van de eerste en laatste (halve) weken van het jaar (CBS oplossing is om deze data weg te gooien blijkbaar...).
 Geen correcties voor vergrijzing/bevolkingsgroei, ook geen selectie voor covid-19 doden.
 
-### updated week 8 2021
+Data is beschikbaar vanaf 1995, maar voor de relevantie (en lengte) kijk ik hier naar de laatste 10 jaar. Dit is simpel aan te passen in de code.
+
+### updated week 9 2021
 
 ![Overledenen in Nederland](https://github.com/heesters/Oversterfte-Nederland/blob/main/sterfte_anim.gif?raw=true)
 
