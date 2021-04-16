@@ -9,7 +9,7 @@ Geen correcties voor vergrijzing/bevolkingsgroei, ook geen selectie voor covid-1
 
 Data is beschikbaar vanaf 1995, maar voor de relevantie (en lengte) kijk ik hier naar de laatste 10 jaar. Dit is simpel aan te passen in de code.
 
-### updated week 12 2021
+### updated week 14 2021
 
 ![Overledenen in Nederland](https://github.com/heesters/Oversterfte-Nederland/blob/main/sterfte_anim.gif?raw=true)
 
