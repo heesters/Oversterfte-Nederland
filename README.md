@@ -10,7 +10,7 @@ Geen correcties voor vergrijzing/bevolkingsgroei, ook geen selectie voor covid-1
 Data is beschikbaar vanaf 1995, maar voor de relevantie (en lengte) kijk ik hier naar de laatste 10 jaar. Dit is simpel aan te passen in de code.
 Voor de mediaan, SD en min-max zijn de jaren 2020 en 2021 uitgesloten omdat het doel is om te kijken naar het verschil met deze corona-jaren.
 
-### updated up to week 24 2021
+### updated up to week 25 2021
 
 ![Overledenen in Nederland](https://github.com/heesters/Oversterfte-Nederland/blob/main/sterfte_anim.gif?raw=true)
 
