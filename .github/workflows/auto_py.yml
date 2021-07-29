@@ -1,8 +1,9 @@
 name: Python package
 
 on:
-schedule:
- - cron: "0 8 * * FRI" #runs at 08:00 UTC every Friday
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    - cron: '0 8 * * FRI' #runs at 08:00 UTC every Friday
 
 jobs:
   build:
