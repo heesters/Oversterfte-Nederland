@@ -5,7 +5,7 @@ Code in Jupyter Notebook [Overledenen.ipynb](https://github.com/heesters/Overste
 
 Oversterfte data van Nederland.
 Uitdaging zat in het correct weergeven van de eerste en laatste (halve) weken van het jaar, zie [code] (https://github.com/heesters/Oversterfte-Nederland/blob/main/Overledenen.ipynb).
-Geen correcties voor vergrijzing/bevolkingsgroei, ook geen selectie voor covid-19 doden.
+Geen correcties voor vergrijzing/bevolkingsgroei etc., ook geen selectie voor covid-19 doden.
 
 Data is beschikbaar vanaf 1995, maar voor de relevantie (en lengte) kijk ik hier naar de laatste 10 jaar. Dit is simpel aan te passen in de code.
 Voor de mediaan, SD en min-max zijn de jaren 2020 en 2021 uitgesloten omdat het doel is om te kijken naar het verschil met deze corona-jaren.
