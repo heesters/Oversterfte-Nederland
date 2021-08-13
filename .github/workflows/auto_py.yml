@@ -26,3 +26,10 @@ jobs:
       - name: excecute py script
         run: |
           python Overledenen.py
+          
+      - name: Update graphs
+        run: |
+          git config --global user.name 'heesters'
+          git config --global user.email 'heesters@users.noreply.github.com'
+          git commit -am "Update graphs"
+          git push
