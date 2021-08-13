@@ -307,22 +307,9 @@ def animate(i):
 num_frames = len(df_circle)
 
 anim = mpl.animation.FuncAnimation(fig, animate, init_func=init, frames=num_frames, interval=50, blit=True) 
-anim.save('sterfte_anim.mp4', writer='ffmpeg', dpi=300, extra_args=['-vf', 'tpad=stop_mode=clone:stop_duration=5'])
+anim.save('sterfte_anim.gif', writer= (animation.PillowWriter(fps=30)), dpi=300, extra_args=['-vf', 'tpad=stop_mode=clone:stop_duration=5'])
 #anim.save(f"img/{sex}_{leeftijd}_anim.gif", writer='imagemagick', dpi=72, fps=30, savefig_kwargs={'facecolor': 'white'})
 
 fig.legend(loc='lower right')
 plt.savefig('sterfte_anim.png', dpi=300, bbox_inches='tight', facecolor='white')
 print("done")
-
-
-# In[12]:
-
-
-import ffmpeg
-(
-    ffmpeg
-    .input('sterfte_anim.mp4')
-    .output('sterfte_anim.gif')
-    .run(overwrite_output=True)
-)
-
