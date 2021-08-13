@@ -25,4 +25,4 @@ jobs:
           pip install  numpy pandas cbsodata seaborn matplotlib ffmpeg
       - name: excecute py script
         run: |
-          python overledenen.py
+          python Overledenen.py
