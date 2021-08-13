@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
-
 import numpy as np
 import pandas as pd
 import cbsodata
@@ -12,26 +6,10 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
 
-
-# In[2]:
-
-
-#toc = pd.DataFrame(cbsodata.get_table_list())
-#toc
-
-
-# In[3]:
-
-
 data = pd.DataFrame(cbsodata.get_data('70895ned'))
 data.dropna(subset = ["Overledenen_1"], inplace=True)
 df=data[data.Perioden.str.contains('week')]
 df=df[df.Perioden.str.contains('1995 week 0')==False].reset_index(drop=True)
-df.iloc[1400:1410]
-
-
-# In[4]:
-
 
 df_clean = df.drop(columns = ['ID'])
 df_clean['to_first_week']=df_clean.Perioden.str.contains('dag') & df_clean.Perioden.str.contains('week 1')
@@ -55,12 +33,6 @@ df_clean['covid_year']=df_clean['year'] >= '2020'
 df_clean.loc[df_clean['covid_year'] == False, 'covid_year'] = '2011-2019 +/- SD'
 df_clean.loc[df_clean['covid_year'] == True, 'covid_year'] = df_clean['year']
 
-df_clean.iloc[0:10]
-
-
-# In[5]:
-
-
 months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
 
 g = sns.FacetGrid(df_clean, col="gender", hue="covid_year", row='age', aspect=2,sharey=False)
@@ -74,10 +46,6 @@ g.map(sns.lineplot, 'week', 'deaths', alpha=.7)
 g.set(xlabel="month", ylabel = "deaths per week", xticks=np.arange(1, 53,(53/12) ), xticklabels=months)
 g.add_legend(title = '')
 g.savefig('2021_leeftijd.png', dpi=300, bbox_inches='tight', facecolor='white')
-
-
-# In[6]:
-
 
 g = sns.FacetGrid(df_clean, col="gender", hue="age", col_wrap=2, aspect=2,sharey=False)
 g.map(sns.lineplot, 'year', 'deaths', alpha=.7, estimator='mean', ci='sd')
@@ -93,10 +61,6 @@ g.set_xticklabels(rotation=90)
 g.add_legend(title = '')
 g.savefig('perjaar_leeftijd.png', dpi=300, bbox_inches='tight', facecolor='white')
 
-
-# In[7]:
-
-
 leeftijd='Totaal leeftijd'
 #leeftijd='0 tot 65 jaar'
 #leeftijd='65 tot 80 jaar'
@@ -107,11 +71,6 @@ sex='Totaal mannen en vrouwen'
 
 df_circle=df_clean[(df_clean.age == leeftijd) & (df_clean.gender == sex)]
 df_circle = df_circle.groupby('Perioden').sum().squeeze()
-df_circle
-
-
-# In[8]:
-
 
 deaths_per_year = pd.DataFrame(columns=range(2010, 2021+1), index=pd.RangeIndex(1, 53+1, name='week'))
 
@@ -119,12 +78,6 @@ for Perioden, deaths in df_circle.iteritems():
     year = int(Perioden[0:4])
     week = int(Perioden[9:12])
     deaths_per_year.loc[week, year] = deaths
-    
-deaths_per_year
-
-
-# In[9]:
-
 
 def data_for_year(y):
     year = deaths_per_year[y].dropna().to_numpy()
@@ -187,10 +140,6 @@ ax.set_title(f"{sex}, {leeftijd}", fontsize=10, y=1.1)
 
 plt.savefig('sterfte_perjaar.png', dpi=300, bbox_inches='tight', facecolor='white')
 
-
-# In[10]:
-
-
 years = deaths_per_year.iloc[:, :-2] # excluding 2021
 
 mean = years.mean(skipna=True,axis=1)
@@ -234,10 +183,6 @@ fig.suptitle(f"Difference with the median (since 2010)", fontsize=14, y=1.04)
 ax.set_title(f"{sex}, {leeftijd}, median excludes 2020 & 2021", fontsize=10, y=1.1)
 
 plt.savefig('sterfte_median.png', dpi=300, bbox_inches='tight', facecolor='white')
-
-
-# In[11]:
-
 
 start_year = 2010
 
@@ -313,4 +258,3 @@ anim.save('sterfte_anim.gif', writer= PillowWriter(fps=30) , dpi=300)
 
 fig.legend(loc='lower right')
 plt.savefig('sterfte_anim.png', dpi=300, bbox_inches='tight', facecolor='white')
-print("done")
