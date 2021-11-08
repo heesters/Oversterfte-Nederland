@@ -40,27 +40,26 @@ g.map(sns.lineplot, 'week', 'deaths', alpha=.7, estimator='mean', ci='sd')
 g.set(xlabel="month", ylabel = "deaths per week", xticks=np.arange(1, 53,(53/12) ), xticklabels=months)
 g.add_legend(title = '')
 g.savefig('naar_Geslacht_leeftijd.svg', bbox_inches='tight', facecolor='white')
-g.savefig('naar_Geslacht_leeftijd.png', dpi=300, bbox_inches='tight', facecolor='white')
 
 g = sns.FacetGrid(df_clean.query("year == '2021' & gender !='Totaal mannen en vrouwen'"), col="age", hue="gender", aspect=2,sharey=False)
 g.map(sns.lineplot, 'week', 'deaths', alpha=.7)
 g.set(xlabel="month", ylabel = "deaths per week", xticks=np.arange(1, 53,(53/12) ), xticklabels=months)
 g.add_legend(title = '')
-g.savefig('2021_leeftijd.png', dpi=300, bbox_inches='tight', facecolor='white')
+g.savefig('2021_leeftijd.svg', bbox_inches='tight', facecolor='white')
 
 g = sns.FacetGrid(df_clean, col="gender", hue="age", col_wrap=2, aspect=2,sharey=False)
 g.map(sns.lineplot, 'year', 'deaths', alpha=.7, estimator='mean', ci='sd')
 g.set(xlabel="year", ylabel = "mean deaths per week")
 g.set_xticklabels(rotation=90)
 g.add_legend(title = '')
-g.savefig('perjaar_Geslacht.png', dpi=300, bbox_inches='tight', facecolor='white')
+g.savefig('perjaar_Geslacht.svg', bbox_inches='tight', facecolor='white')
 
 g = sns.FacetGrid(df_clean, col="age", hue="gender",col_wrap=2, aspect=2,sharey=False)
 g.map(sns.lineplot, 'year', 'deaths', alpha=.7, estimator='mean', ci='sd')
 g.set(xlabel="year", ylabel = "mean deaths per week")
 g.set_xticklabels(rotation=90)
 g.add_legend(title = '')
-g.savefig('perjaar_leeftijd.png', dpi=300, bbox_inches='tight', facecolor='white')
+g.savefig('perjaar_leeftijd.svg', bbox_inches='tight', facecolor='white')
 
 leeftijd='Totaal leeftijd'
 #leeftijd='0 tot 65 jaar'
@@ -139,7 +138,7 @@ fig.legend(loc='lower right')
 fig.suptitle("Deaths in the Netherlands per week (2010-2021)", fontsize=14, y=1.04)
 ax.set_title(f"{sex}, {leeftijd}", fontsize=10, y=1.1)
 
-plt.savefig('sterfte_perjaar.png', dpi=300, bbox_inches='tight', facecolor='white')
+plt.savefig('sterfte_perjaar.svg', bbox_inches='tight', facecolor='white')
 
 years = deaths_per_year.iloc[:, :-2] # excluding 2021
 
@@ -183,7 +182,6 @@ fig.legend(loc='lower right')
 fig.suptitle(f"Difference with the median (since 2010)", fontsize=14, y=1.04)
 ax.set_title(f"{sex}, {leeftijd}, median excludes 2020 & 2021", fontsize=10, y=1.1)
 
-plt.savefig('sterfte_median.png', dpi=300, bbox_inches='tight', facecolor='white')
 plt.savefig('sterfte_median.svg', bbox_inches='tight', facecolor='white')
 
 start_year = 2010
@@ -259,5 +257,4 @@ anim = mpl.animation.FuncAnimation(fig, animate, init_func=init, frames=num_fram
 anim.save('sterfte_anim.gif', writer= PillowWriter(fps=30) , dpi=300)
 
 fig.legend(loc='lower right')
-plt.savefig('sterfte_anim.png', dpi=300, bbox_inches='tight', facecolor='white')
 plt.savefig('sterfte_anim.svg', bbox_inches='tight', facecolor='white')
