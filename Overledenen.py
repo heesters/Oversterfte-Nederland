@@ -39,7 +39,6 @@ g = sns.FacetGrid(df_clean, col="gender", hue="covid_year", row='age', aspect=2,
 g.map(sns.lineplot, 'week', 'deaths', alpha=.7, estimator='mean', ci='sd')
 g.set(xlabel="month", ylabel = "deaths per week", xticks=np.arange(1, 53,(53/12) ), xticklabels=months)
 g.add_legend(title = '')
-g.savefig('naar_Geslacht_leeftijd.png', dpi=300, bbox_inches='tight', facecolor='white')
 g.savefig('naar_Geslacht_leeftijd.svg', bbox_inches='tight', facecolor='white')
 
 g = sns.FacetGrid(df_clean.query("year == '2021' & gender !='Totaal mannen en vrouwen'"), col="age", hue="gender", aspect=2,sharey=False)
