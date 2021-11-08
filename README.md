@@ -1,5 +1,6 @@
 # Overledenen in Nederland / Deaths in the Netherlands
 ![Verschil met de mediaan](https://github.com/heesters/Oversterfte-Nederland/blob/main/sterfte_median.svg?raw=true&sanitize=true)
+
 Analysis of data from Centraal Bureau voor de Statistiek Nederland : https://www.cbs.nl
 
 Code in Jupyter Notebook [Overledenen.ipynb](https://github.com/heesters/Oversterfte-Nederland/blob/main/Overledenen.ipynb)
