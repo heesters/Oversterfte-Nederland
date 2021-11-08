@@ -3,7 +3,7 @@ name: Python package
 on:
   schedule:
     # * is a special character in YAML so you have to quote this string
-    - cron: '45 13 * * MON' #runs at 2:05 UTC = 04:05 local (AMS) every Friday
+    - cron: '58 13 * * MON' #runs at 2:05 UTC = 04:05 local (AMS) every Friday
 
 jobs:
   build:
