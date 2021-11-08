@@ -1,5 +1,6 @@
 # Overledenen in Nederland / Deaths in the Netherlands
-![Verschil met de mediaan](https://github.com/heesters/Oversterfte-Nederland/blob/main/sterfte_median.png?raw=true)
+![Verschil met de mediaan](https://github.com/heesters/Oversterfte-Nederland/blob/main/sterfte_median.svg?raw=true&sanitize=true)
+
 Analysis of data from Centraal Bureau voor de Statistiek Nederland : https://www.cbs.nl
 
 Code in Jupyter Notebook [Overledenen.ipynb](https://github.com/heesters/Oversterfte-Nederland/blob/main/Overledenen.ipynb)
@@ -13,6 +14,6 @@ Voor de mediaan, SD en min-max zijn de jaren 2020 en 2021 uitgesloten omdat het 
 
 ![Overledenen in Nederland](https://github.com/heesters/Oversterfte-Nederland/blob/main/sterfte_anim.gif?raw=true)
 
-![Overledenen in Nederland](https://github.com/heesters/Oversterfte-Nederland/blob/main/sterfte_perjaar.png?raw=true)
+![Overledenen in Nederland](https://github.com/heesters/Oversterfte-Nederland/blob/main/sterfte_perjaar.svg?raw=true&sanitize=true)
 
-![Naar leeftijd en geslacht](https://github.com/heesters/Oversterfte-Nederland/blob/main/naar_Geslacht_leeftijd.png?raw=true)
+![Naar leeftijd en geslacht](https://github.com/heesters/Oversterfte-Nederland/blob/main/naar_Geslacht_leeftijd.svg?raw=true&sanitize=true)
