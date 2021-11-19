@@ -4,6 +4,12 @@ import cbsodata
 import seaborn as sns
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from matplotlib import pyplot as plt
+def save_figs(fn,types=('.png','.svg')):
+    fig = plt.gcf()
+    for t in types:
+        fig.savefig(fn+t)
+plt.savefig = save_figs
 from matplotlib.animation import FuncAnimation, PillowWriter
 
 data = pd.DataFrame(cbsodata.get_data('70895ned'))
@@ -118,7 +124,7 @@ fig.legend(loc='lower right')
 fig.suptitle("Deaths in the Netherlands per week (2010-2021)", fontsize=14, y=1.04)
 ax.set_title(f"{sex}, {leeftijd}", fontsize=10, y=1.1)
 
-plt.savefig('sterfte_perjaar.svg', bbox_inches='tight', facecolor='white')
+plt.savefig('sterfte_perjaar', bbox_inches='tight', facecolor='white')
 
 years = deaths_per_year.iloc[:, :-2] # excluding 2021
 
@@ -162,7 +168,7 @@ fig.legend(loc='lower right')
 fig.suptitle(f"Difference with the median (since 2010)", fontsize=14, y=1.04)
 ax.set_title(f"{sex}, {leeftijd}, median excludes 2020 & 2021", fontsize=10, y=1.1)
 
-plt.savefig('sterfte_median.svg', bbox_inches='tight', facecolor='white')
+plt.savefig('sterfte_median', bbox_inches='tight', facecolor='white')
 
 start_year = 2010
 
