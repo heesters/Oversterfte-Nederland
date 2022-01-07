@@ -3,7 +3,6 @@ import pandas as pd
 import cbsodata
 import seaborn as sns
 import matplotlib as mpl
-import matplotlib.pyplot as plt
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
 
@@ -31,7 +30,7 @@ df_clean = df_clean[['Perioden','gender','age','year','week','deaths']]
 df_clean=df_clean[df_clean.Perioden >= '2010'].reset_index(drop=True)
 
 df_clean['covid_year']=df_clean['year'] >= '2020'
-df_clean.loc[df_clean['covid_year'] == False, 'covid_year'] = '2011-2019 +/- SD'
+df_clean.loc[df_clean['covid_year'] == False, 'covid_year'] = '2010-2019 +/- SD'
 df_clean.loc[df_clean['covid_year'] == True, 'covid_year'] = df_clean['year']
 
 months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
@@ -54,7 +53,7 @@ sex='Totaal mannen en vrouwen'
 df_circle=df_clean[(df_clean.age == leeftijd) & (df_clean.gender == sex)]
 df_circle = df_circle.groupby('Perioden').sum().squeeze()
 
-deaths_per_year = pd.DataFrame(columns=range(2010, 2021+1), index=pd.RangeIndex(1, 53+1, name='week'))
+deaths_per_year = pd.DataFrame(columns=range(2010, 2022+1), index=pd.RangeIndex(1, 53+1, name='week'))
 
 for Perioden, deaths in df_circle.iteritems():
     year = int(Perioden[0:4])
@@ -63,7 +62,7 @@ for Perioden, deaths in df_circle.iteritems():
 
 def data_for_year(y):
     year = deaths_per_year[y].dropna().to_numpy()
-    if y == 2021:
+    if y == 2022:
         num_weeks = len(year)
         day_of_the_year = num_weeks*7 + 3 # ex. week 46 -> november 15 -> day 319
         theta = np.linspace(0, (day_of_the_year/365)*2*np.pi, num_weeks)
@@ -86,7 +85,6 @@ def setup_polar_plot(figsize=(8, 6), constrained_layout=True):
     ax.set_xticklabels(months)
 
     ax.set_rlabel_position(180)
-#    ax.set_yticklabels(['1000', '2000', '3000', '4000', '5000', ''])
 
     return fig, ax
 
@@ -96,26 +94,15 @@ plot_year(ax, 2011, linewidth=0.5, linestyle='dotted')
 plot_year(ax, 2012, linewidth=0.5, linestyle='dotted')
 plot_year(ax, 2013, linewidth=0.5, linestyle='dotted')
 plot_year(ax, 2014, linewidth=0.5, linestyle='dotted')
-plot_year(ax, 2015, linewidth=1)
-plot_year(ax, 2016, linewidth=1)
-plot_year(ax, 2017, linewidth=1)
-plot_year(ax, 2018, linewidth=1)
-plot_year(ax, 2019, linewidth=1)
-plot_year(ax, 2020, color='tab:red', linewidth=2.5)
-plot_year(ax, 2021, color='tab:green', linewidth=3)
+plot_year(ax, 2015, linewidth=0.5)
+plot_year(ax, 2016, linewidth=0.5)
+plot_year(ax, 2017, linewidth=0.5)
+plot_year(ax, 2018, linewidth=0.5)
+plot_year(ax, 2019, linewidth=0.5)
+plot_year(ax, 2020, color='tab:red', linewidth=1.5)
+plot_year(ax, 2021, color='tab:orange', linewidth=2)
+plot_year(ax, 2022, color='tab:green', linewidth=3)
 
-#plot_year(ax, 2011, color='tab:gray', linewidth=0.5)
-#plot_year(ax, 2012, color='tab:gray', linestyle='dotted')
-#plot_year(ax, 2013, color='tab:gray', linestyle='dashed')
-#plot_year(ax, 2014, color='tab:gray', linestyle='dashdot')
-#plot_year(ax, 2015, color='tab:gray')
-#plot_year(ax, 2016, color='tab:blue', linestyle='dashdot')
-#plot_year(ax, 2017, color='tab:blue')
-#plot_year(ax, 2018, color='tab:green')
-#plot_year(ax, 2019, color='tab:orange')
-#plot_year(ax, 2020, color='tab:red', linewidth=3)
-
-#ax.set_rmax(5500)
 fig.legend(loc='lower right')
 fig.suptitle("Deaths in the Netherlands per week (2010-2021)", fontsize=14, y=1.04)
 ax.set_title(f"{sex}, {leeftijd}", fontsize=10, y=1.1)
@@ -123,7 +110,7 @@ ax.set_title(f"{sex}, {leeftijd}", fontsize=10, y=1.1)
 for suffix in 'png svg'.split():
     plt.savefig('sterfte_perjaar.'+suffix, dpi=200, bbox_inches='tight', facecolor='white')
 
-years = deaths_per_year.iloc[:, :-2] # excluding 2021
+years = deaths_per_year.iloc[:, :-2] # excluding 2020-2022
 
 mean = years.mean(skipna=True,axis=1)
 mean[53] = mean[1]
@@ -148,22 +135,18 @@ q75[53] = q75[1]
 
 fig, ax = setup_polar_plot()
 
-# ax.plot(np.linspace(0, 2*np.pi, len(mean)), mean, label="5y mean")
-# ax.plot(np.linspace(0, 2*np.pi, len(data_for_year(2019))), data_for_year(2019), label="2019")
 ax.fill_between(np.linspace(0, 2*np.pi, len(min)), mean+sd, mean-sd, alpha=0.3, label="SD", color='tab:blue')
 
 ax.fill_between(np.linspace(0, 2*np.pi, len(min)), min, max, alpha=0.2, label="Min/Max")
-#ax.fill_between(np.linspace(0, 2*np.pi, len(q25)), q25, q75, alpha=0.3, label="50%", color='tab:green')
 
 ax.plot(np.linspace(0, 2*np.pi, len(median)), median, label="Median", linestyle='dashed')
-plot_year(ax, 2020, color='tab:red', linewidth=2)
-plot_year(ax, 2021, color='tab:green', linewidth=3)
+plot_year(ax, 2020, color='tab:red', linewidth=1.5)
+plot_year(ax, 2021, color='tab:orange', linewidth=2)
+plot_year(ax, 2022, color='tab:green', linewidth=3)
 
-
-#ax.set_rmax(5500)
 fig.legend(loc='lower right')
 fig.suptitle(f"Difference with the median (since 2010)", fontsize=14, y=1.04)
-ax.set_title(f"{sex}, {leeftijd}, median excludes 2020 & 2021", fontsize=10, y=1.1)
+ax.set_title(f"{sex}, {leeftijd}, median excludes 2020-2022", fontsize=10, y=1.1)
 for suffix in 'png svg'.split():
     plt.savefig('sterfte_median.'+suffix, dpi=200, bbox_inches='tight', facecolor='white')
 
@@ -186,9 +169,10 @@ fig.suptitle("Deaths in the Netherlands per week", fontsize=14)
 ax.set_title(f"{sex}, {leeftijd}", fontsize=10, y=1.1)
 
 
-old, = ax.plot([], [], color='tab:blue', linewidth=0.5, linestyle='dotted', label="2011-2019")
-prev, = ax.plot([], [], color='tab:red', label="2020")
-current, = ax.plot([], [], color='tab:green', linewidth=3, label="2021")
+old, = ax.plot([], [], color='tab:blue', linewidth=0.5, linestyle='dotted', label="2010-2019")
+prev2, = ax.plot([], [], color='tab:red', label="2020")
+prev, = ax.plot([], [], color='tab:orange', label="2021")
+current, = ax.plot([], [], color='tab:green', linewidth=3, label="2022")
 center = ax.text(0, 25, "5000", horizontalalignment='center', fontsize=18)
 ax.set_rmax(5500)
 
@@ -213,7 +197,7 @@ def init():
     prev.set_data([], []) 
     current.set_data([], []) 
     center.set_text("")
-    return old, prev, current, center
+    return old, prev2, prev, current, center
 
 def animate(i):
     y = year_and_week_for_index(i)[0]
@@ -230,7 +214,7 @@ def animate(i):
 
     current.set_data(*data_for_index(i))
     center.set_text(f"{y}")
-    return old, prev, current, center
+    return old, prev2, prev, current, center
 
 num_frames = len(df_circle)
 
