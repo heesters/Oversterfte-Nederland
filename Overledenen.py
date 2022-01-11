@@ -4,7 +4,7 @@ import cbsodata
 import seaborn as sns
 import matplotlib as mpl
 from matplotlib import pyplot as plt
-from matplotlib.animation import PillowWriter
+from matplotlib.animation import FuncAnimation, PillowWriter
 
 data = pd.DataFrame(cbsodata.get_data('70895ned'))
 data.dropna(subset = ["Overledenen_1"], inplace=True)
