@@ -26,7 +26,6 @@ df_clean = df_clean.drop(columns = ['Overledenen_1','to_first_week','to_last_wee
 df_clean = df_clean.rename(columns={"LeeftijdOp31December": "age", "Geslacht": "gender"})
 df_clean = df_clean[['Perioden','gender','age','year','week','deaths']]
 
-#remove this line to get the full time period
 df_clean=df_clean[df_clean.Perioden >= '2010'].reset_index(drop=True)
 
 df_clean['covid_year']=df_clean['year'] >= '2020'
@@ -161,7 +160,6 @@ ax.set_title(f"{sex}, {leeftijd}", fontsize=10, y=1.1)
 
 
 old, = ax.plot([], [], color='tab:blue', linewidth=0.5, linestyle='dotted', label="2010-2019")
-prevprev, = ax.plot([], [], color='tab:red', label=int(current_year)-2)
 prev, = ax.plot([], [], color='tab:orange', label=int(current_year)-1)
 current, = ax.plot([], [], color='tab:green', linewidth=3, label=int(current_year))
 center = ax.text(0, 25, "5000", horizontalalignment='center', fontsize=18)
