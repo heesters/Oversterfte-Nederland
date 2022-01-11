@@ -1,4 +1,4 @@
-name: Python package
+name: manual Python package
 
 on: 
   workflow_dispatch
