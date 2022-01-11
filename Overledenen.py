@@ -4,7 +4,7 @@ import cbsodata
 import seaborn as sns
 import matplotlib as mpl
 from matplotlib import pyplot as plt
-from matplotlib.animation import FuncAnimation, PillowWriter
+from matplotlib.animation import PillowWriter
 
 data = pd.DataFrame(cbsodata.get_data('70895ned'))
 data.dropna(subset = ["Overledenen_1"], inplace=True)
@@ -128,20 +128,15 @@ q75[53] = q75[1]
 
 fig, ax = setup_polar_plot()
 
-# ax.plot(np.linspace(0, 2*np.pi, len(mean)), mean, label="5y mean")
-# ax.plot(np.linspace(0, 2*np.pi, len(data_for_year(2019))), data_for_year(2019), label="2019")
 ax.fill_between(np.linspace(0, 2*np.pi, len(min)), mean+sd, mean-sd, alpha=0.3, label="SD", color='tab:blue')
 
 ax.fill_between(np.linspace(0, 2*np.pi, len(min)), min, max, alpha=0.2, label="Min/Max")
-#ax.fill_between(np.linspace(0, 2*np.pi, len(q25)), q25, q75, alpha=0.3, label="50%", color='tab:green')
 
 ax.plot(np.linspace(0, 2*np.pi, len(median)), median, label="Median", linestyle='dashed')
 plot_year(ax, int(current_year)-2, color='tab:red', linewidth=2, linestyle='dotted')
 plot_year(ax, int(current_year)-1, color='tab:orange', linewidth=2)
 plot_year(ax, int(current_year), color='tab:green', linewidth=3)
 
-
-#ax.set_rmax(5500)
 fig.legend(loc='lower right')
 fig.suptitle(f"Difference with the median (since 2010)", fontsize=14, y=1.04)
 ax.set_title(f"{sex}, {leeftijd}, median excludes 2020-2022", fontsize=10, y=1.1)
@@ -152,10 +147,8 @@ start_year = 2010
 
 fig, ax = setup_polar_plot(figsize=(6, 6.2), constrained_layout=False)
 
-# english month labels
 ax.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
 
-# nudge ax position
 pos = ax.get_position()
 pos.y0 -= 0.05
 pos.y1 -= 0.05
@@ -217,8 +210,6 @@ def animate(i):
 num_frames = len(df_circle)
 
 anim = mpl.animation.FuncAnimation(fig, animate, init_func=init, frames=num_frames, interval=50, blit=True) 
-#anim.save('sterfte_anim.mp4', writer='ffmpeg', dpi=300, extra_args=['-vf', 'tpad=stop_mode=clone:stop_duration=5'])
-#anim.save(f"img/{sex}_{leeftijd}_anim.gif", writer='imagemagick', dpi=72, fps=30, savefig_kwargs={'facecolor': 'white'})
 anim.save('sterfte_anim.gif', writer= PillowWriter(fps=30) , dpi=300)
 
 fig.legend(loc='lower right')
