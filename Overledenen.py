@@ -33,7 +33,7 @@ df_clean.loc[df_clean['covid_year'] == False, 'covid_year'] = '2010-2019 +/- SD'
 df_clean.loc[df_clean['covid_year'] == True, 'covid_year'] = df_clean['year']
 
 months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
-current_year = df_clean.iloc[-1]['year']
+current_year = df_clean['year'].max()
 
 g = sns.FacetGrid(df_clean, col="gender", hue="covid_year", palette=["dodgerblue","red","orange", "green"], row='age', aspect=2,sharey=False)
 g.map(sns.lineplot, 'week', 'deaths', alpha=.7, estimator='mean', ci='sd')
