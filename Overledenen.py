@@ -137,7 +137,7 @@ plot_year(ax, int(current_year)-1, color='tab:orange', linewidth=2)
 plot_year(ax, int(current_year), color='tab:green', linewidth=3)
 
 fig.legend(loc='lower right')
-fig.suptitle(f"Difference with the median (since 2010)", fontsize=14, y=1.04)
+fig.suptitle(f"Deaths per week in the Netherlands (since 2010)", fontsize=14, y=1.04)
 ax.set_title(f"{sex}, {leeftijd}, median excludes 2020-2022", fontsize=10, y=1.1)
 for suffix in 'png svg'.split():
     plt.savefig('sterfte_median.'+suffix, dpi=200, bbox_inches='tight', facecolor='white')
@@ -155,7 +155,7 @@ pos.x0 -= 0.012
 pos.x1 -= 0.012
 ax.set_position(pos)
 
-fig.suptitle("Deaths in the Netherlands per week", fontsize=14)
+fig.suptitle("Deaths per week in the Netherlands (since 2010)", fontsize=14)
 ax.set_title(f"{sex}, {leeftijd}", fontsize=10, y=1.1)
 
 
