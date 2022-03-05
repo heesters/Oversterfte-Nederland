@@ -208,7 +208,7 @@ def animate(i):
 num_frames = len(df_circle)
 
 anim = mpl.animation.FuncAnimation(fig, animate, init_func=init, frames=num_frames, interval=50, blit=True) 
-anim.save('sterfte_anim.gif', writer= PillowWriter(fps=30) , dpi=300)
+anim.save('sterfte_anim.gif', writer= PillowWriter(fps=50) , dpi=72)
 
 fig.legend(loc='lower right')
 plt.savefig('sterfte_anim.svg', bbox_inches='tight', facecolor='white')
