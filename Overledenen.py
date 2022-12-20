@@ -35,12 +35,12 @@ df_clean.loc[df_clean['covid_year'] == True, 'covid_year'] = df_clean['year']
 months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
 current_year = df_clean['year'].max()
 
-g = sns.FacetGrid(df_clean, col="gender", hue="covid_year", palette=["dodgerblue","red","orange", "green"], row='age', aspect=2,sharey=False)
-g.map(sns.lineplot, 'week', 'deaths', alpha=.7, estimator='mean', errorbar='sd')
-g.set(xlabel="month", ylabel = "deaths per week", xticks=np.arange(1, 53,(53/12) ), xticklabels=months)
-g.add_legend(title = '')
-for suffix in 'png svg'.split():
-    g.savefig('naar_Geslacht_leeftijd.'+suffix, dpi=200, bbox_inches='tight', facecolor='white')
+#g = sns.FacetGrid(df_clean, col="gender", hue="covid_year", palette=["dodgerblue","red","orange", "green"], row='age', aspect=2,sharey=False)
+#g.map(sns.lineplot, 'week', 'deaths', alpha=.7, estimator='mean', errorbar='sd')
+#g.set(xlabel="month", ylabel = "deaths per week", xticks=np.arange(1, 53,(53/12) ), xticklabels=months)
+#g.add_legend(title = '')
+#for suffix in 'png svg'.split():
+#    g.savefig('naar_Geslacht_leeftijd.'+suffix, dpi=200, bbox_inches='tight', facecolor='white')
 
 leeftijd='Totaal leeftijd'
 sex='Totaal mannen en vrouwen'
