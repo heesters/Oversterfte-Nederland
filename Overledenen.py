@@ -8,10 +8,10 @@ from matplotlib.animation import PillowWriter
 
 data = pd.DataFrame(cbsodata.get_data('70895ned'))
 data.dropna(subset = ["Overledenen_1"], inplace=True)
-df=data[data.Perioden.str.contains('week')]
-df=df[df.Perioden.str.contains('1995 week 0')==False].reset_index(drop=True)
+df_clean=data[data.Perioden.str.contains('week')]
+df_clean=df_clean[df_clean.Perioden.str.contains('1995 week 0')==False].reset_index(drop=True)
 
-df_clean = df.drop(columns = ['ID'])
+df_clean = df_clean.drop(columns = ['ID'])
 df_clean['to_first_week']=df_clean.Perioden.str.contains('dag') & df_clean.Perioden.str.contains('week 1')
 df_clean['to_last_week']=df_clean.Perioden.str.contains('dag') & df_clean.Perioden.shift(-1).str.contains('week 0')
 df_clean['partial_week']=df_clean.Perioden.str.contains('dag')
@@ -35,12 +35,12 @@ df_clean.loc[df_clean['covid_year'] == True, 'covid_year'] = df_clean['year']
 months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
 current_year = df_clean['year'].max()
 
-g = sns.FacetGrid(df_clean, col="gender", hue="covid_year", palette=["dodgerblue","red","orange", "green"], row='age', aspect=2,sharey=False)
-g.map(sns.lineplot, 'week', 'deaths', alpha=.7, estimator='mean', errorbar='sd')
-g.set(xlabel="month", ylabel = "deaths per week", xticks=np.arange(1, 53,(53/12) ), xticklabels=months)
-g.add_legend(title = '')
-for suffix in 'png svg'.split():
-    g.savefig('naar_Geslacht_leeftijd.'+suffix, dpi=200, bbox_inches='tight', facecolor='white')
+#g = sns.FacetGrid(df_clean, col="gender", hue="covid_year", palette=["dodgerblue","red","orange", "green"], row='age', aspect=2,sharey=False)
+#g.map(sns.lineplot, 'week', 'deaths', alpha=.7, estimator='mean', errorbar='sd')
+#g.set(xlabel="month", ylabel = "deaths per week", xticks=np.arange(1, 53,(53/12) ), xticklabels=months)
+#g.add_legend(title = '')
+#for suffix in 'png svg'.split():
+#    g.savefig('naar_Geslacht_leeftijd.'+suffix, dpi=200, bbox_inches='tight', facecolor='white')
 
 leeftijd='Totaal leeftijd'
 sex='Totaal mannen en vrouwen'
