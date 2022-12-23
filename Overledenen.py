@@ -22,11 +22,12 @@ df_clean = df_clean.dropna(subset = ["deaths"]).reset_index(drop=True)
 df_clean[['year','week']] = df_clean.Perioden.str.split("week",expand=True)
 df_clean['week'] = df_clean.week.str.extract('(\d+)')
 df_clean['year'] = df_clean.year.str.extract('(\d+)')
+df_clean['week'] =pd.to_numeric(df_clean['week'])
+df_clean['year'] =pd.to_numeric(df_clean['year'])
+df_clean['deaths'] =pd.to_numeric(df_clean['deaths'])
 df_clean = df_clean.drop(columns = ['Overledenen_1','to_first_week','to_last_week','partial_week'])
 df_clean = df_clean.rename(columns={"LeeftijdOp31December": "age", "Geslacht": "gender"})
 df_clean = df_clean[['Perioden','gender','age','year','week','deaths']]
-df_clean = np.array(df_clean, dtype=float)
-
 
 df_clean=df_clean[df_clean.Perioden >= '2010'].reset_index(drop=True)
 
@@ -47,24 +48,17 @@ for suffix in 'png svg'.split():
 leeftijd='Totaal leeftijd'
 sex='Totaal mannen en vrouwen'
 df_circle=df_clean[(df_clean.age == leeftijd) & (df_clean.gender == sex)]
-df_circle = df_circle.groupby('Perioden').sum(numeric_only=True).squeeze()
-
-deaths_per_year = pd.DataFrame(columns=range(2010, int(current_year)+1), index=pd.RangeIndex(1, 53+1, name='week'))
-
-for Perioden, deaths in df_circle.items():
-    year = int(Perioden[0:4])
-    week = int(Perioden[9:12])
-    deaths_per_year.loc[week, year] = deaths
+df_circle=df_circle.pivot(index='week', columns='year', values='deaths')
 
 def data_for_year(y):
-    year = deaths_per_year[y].dropna().to_numpy()
+    year = df_circle[y].dropna().to_numpy()
     if y == int(current_year):
         num_weeks = len(year)
         day_of_the_year = num_weeks*7 + 3 # ex. week 46 -> november 15 -> day 319
         theta = np.linspace(0, (day_of_the_year/365)*2*np.pi, num_weeks)
     else:
         # append first week of next year for correct radial plotting
-        year = np.append(year, deaths_per_year.loc[1, y+1])
+        year = np.append(year, df_circle.loc[1, y+1])
         theta = np.linspace(0, 2*np.pi, len(year))
     return (theta, year)
 
@@ -104,7 +98,7 @@ ax.set_title(f"{sex}, {leeftijd}", fontsize=10, y=1.1)
 for suffix in 'png svg'.split():
     plt.savefig('sterfte_perjaar.'+suffix, dpi=200, bbox_inches='tight', facecolor='white')
 
-years = deaths_per_year.loc[:, ~deaths_per_year.columns.isin([2020, 2021,int(current_year)])] # excluding corona years and current year
+years = df_circle.loc[:, ~df_circle.columns.isin([2020, 2021,int(current_year)])] # excluding corona years and current year
 
 mean = years.mean(skipna=True,axis=1)
 mean[53] = mean[1]
@@ -121,10 +115,10 @@ max[53] = max[1]
 sd = years.std(axis=1)
 sd[53] = sd[1]
 
-q25 = deaths_per_year.astype(float).quantile(0.25, axis=1)
+q25 = df_circle.astype(float).quantile(0.25, axis=1)
 q25[53] = q25[1]
 
-q75 = deaths_per_year.astype(float).quantile(0.75, axis=1)
+q75 = df_circle.astype(float).quantile(0.75, axis=1)
 q75[53] = q75[1]
 
 fig, ax = setup_polar_plot()
@@ -170,7 +164,7 @@ ax.set_rmax(5500)
 def year_and_week_for_index(i):
     y = start_year
     while True:
-        len_year = len(deaths_per_year[y].dropna()) + 1
+        len_year = len(df_circle[y].dropna()) + 1
         if len_year > i:
             return (y, i+1)
         else:
