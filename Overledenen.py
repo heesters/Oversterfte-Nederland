@@ -138,73 +138,7 @@ ax.set_title(f"{sex}, {leeftijd}, median excludes 2020-2022", fontsize=10, y=1.1
 for suffix in 'png svg'.split():
     plt.savefig('sterfte_median.'+suffix, dpi=200, bbox_inches='tight', facecolor='white')
 
-start_year = 2010
 
-fig, ax = setup_polar_plot(figsize=(6, 6.2), constrained_layout=False)
-
-ax.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
-
-pos = ax.get_position()
-pos.y0 -= 0.05
-pos.y1 -= 0.05
-pos.x0 -= 0.012
-pos.x1 -= 0.012
-ax.set_position(pos)
-
-fig.suptitle("Deaths per week in the Netherlands (since 2010)", fontsize=14)
-ax.set_title(f"{sex}, {leeftijd}", fontsize=10, y=1.1)
-
-
-old, = ax.plot([], [], color='tab:blue', linewidth=0.5, linestyle='dotted', label="2010-2019")
-prev, = ax.plot([], [], color='tab:orange', label=int(current_year)-1)
-current, = ax.plot([], [], color='tab:green', linewidth=3, label=int(current_year))
-center = ax.text(0, 25, "5000", horizontalalignment='center', fontsize=18)
-ax.set_rmax(5500)
-
-def year_and_week_for_index(i):
-    y = start_year
-    while True:
-        len_year = len(df_circle[y].dropna()) + 1
-        if len_year > i:
-            return (y, i+1)
-        else:
-            y += 1
-            i -= (len_year-1)
-
-def data_for_index(i):
-    y, w = year_and_week_for_index(i)
-    #print(y, w)
-    theta, year = data_for_year(y)
-    return theta[:w], year[:w]
-
-def init():
-    old.set_data([], []) 
-    prev.set_data([], []) 
-    current.set_data([], []) 
-    center.set_text("")
-    return old, prev, current, center
-
-def animate(i):
-    y = year_and_week_for_index(i)[0]
-
-    if y > start_year:
-        old_theta = np.array([])
-        old_data = np.array([])
-        for year in range(start_year, y-1):
-            theta, data = data_for_year(year)
-            old_theta = np.append(old_theta, theta)
-            old_data = np.append(old_data, data)
-        old.set_data(old_theta, old_data)
-        prev.set_data(*data_for_year(y-1))
-
-    current.set_data(*data_for_index(i))
-    center.set_text(f"{y}")
-    return old, prev, current, center
-
-num_frames = len(df_circle)
-
-anim = mpl.animation.FuncAnimation(fig, animate, init_func=init, frames=num_frames, interval=50, blit=True) 
-anim.save('sterfte_anim.gif', writer= PillowWriter(fps=50) , dpi=72)
 
 fig.legend(loc='lower right')
 plt.savefig('sterfte_anim.svg', bbox_inches='tight', facecolor='white')
