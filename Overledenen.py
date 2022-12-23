@@ -31,7 +31,7 @@ df_clean = df_clean[['Perioden','gender','age','year','week','deaths']]
 
 df_clean=df_clean[df_clean.Perioden >= '2010'].reset_index(drop=True)
 
-df_clean['covid_year']=df_clean['year'] >= '2020'
+df_clean['covid_year']=df_clean['year'] >= 2020
 df_clean.loc[df_clean['covid_year'] == False, 'covid_year'] = '2010-2019 +/- SD'
 df_clean.loc[df_clean['covid_year'] == True, 'covid_year'] = df_clean['year']
 
@@ -93,7 +93,7 @@ plot_year(ax, int(current_year)-1, color='tab:orange', linewidth=2)
 plot_year(ax, int(current_year), color='tab:green', linewidth=3)
 
 fig.legend(loc='lower right')
-fig.suptitle('Deaths in the Netherlands per week ('+str(int(current_year)-10)+'-'+current_year+')', fontsize=14, y=1.04)
+fig.suptitle('Deaths in the Netherlands per week', fontsize=14, y=1.04)
 ax.set_title(f"{sex}, {leeftijd}", fontsize=10, y=1.1)
 for suffix in 'png svg'.split():
     plt.savefig('sterfte_perjaar.'+suffix, dpi=200, bbox_inches='tight', facecolor='white')
