@@ -22,9 +22,9 @@ df_clean = df_clean.dropna(subset = ["deaths"]).reset_index(drop=True)
 df_clean[['year','week']] = df_clean.Perioden.str.split("week",expand=True)
 df_clean['week'] = df_clean.week.str.extract('(\d+)')
 df_clean['year'] = df_clean.year.str.extract('(\d+)')
-df_clean['week'] =pd.to_numeric(df_clean['week']).values.astype(float)
-df_clean['year'] =pd.to_numeric(df_clean['year']).values.astype(float)
-df_clean['deaths'] =pd.to_numeric(df_clean['deaths']).values.astype(float)
+df_clean['week'] =pd.to_numeric(df_clean['week']).values.astype(int)
+df_clean['year'] =pd.to_numeric(df_clean['year']).values.astype(int)
+df_clean['deaths'] =pd.to_numeric(df_clean['deaths']).values.astype(int)
 df_clean = df_clean.drop(columns = ['Overledenen_1','to_first_week','to_last_week','partial_week'])
 df_clean = df_clean.rename(columns={"LeeftijdOp31December": "age", "Geslacht": "gender"})
 df_clean = df_clean[['Perioden','gender','age','year','week','deaths']]
@@ -98,7 +98,7 @@ ax.set_title(f"{sex}, {leeftijd}", fontsize=10, y=1.1)
 for suffix in 'png svg'.split():
     plt.savefig('sterfte_perjaar.'+suffix, dpi=200, bbox_inches='tight', facecolor='white')
 
-years = df_circle.loc[:, ~df_circle.columns.isin([2020, 2021,int(current_year)])] # excluding corona years and current year
+years = df_circle.loc[:, ~df_circle.columns.isin([2020, 2021, 2022, int(current_year)])] # excluding corona years and current year
 
 mean = years.mean(skipna=True,axis=1)
 mean[53] = mean[1]
@@ -134,14 +134,16 @@ plot_year(ax, int(current_year), color='tab:green', linewidth=3)
 
 fig.legend(loc='lower right')
 fig.suptitle(f"Deaths per week in the Netherlands (since 2010)", fontsize=14, y=1.04)
-ax.set_title(f"{sex}, {leeftijd}, median excludes 2020-2022", fontsize=10, y=1.1)
+ax.set_title(f"{sex}, {leeftijd}, median excludes 2020-2023", fontsize=10, y=1.1)
 for suffix in 'png svg'.split():
     plt.savefig('sterfte_median.'+suffix, dpi=200, bbox_inches='tight', facecolor='white')
 
 
 
 fig.legend(loc='lower right')
-plt.savefig('sterfte_anim.svg', bbox_inches='tight', facecolor='white')
+for suffix in 'png svg'.split():
+    plt.savefig('sterfte_anim.'+suffix, bbox_inches='tight', facecolor='white')
+
 start_year = 2010
 
 fig, ax = setup_polar_plot(figsize=(6, 6.2), constrained_layout=False)
@@ -209,3 +211,4 @@ num_frames = len(df_circle)
 
 anim = mpl.animation.FuncAnimation(fig, animate, init_func=init, frames=num_frames, interval=50, blit=True) 
 anim.save('sterfte_anim.gif', writer= PillowWriter(fps=50) , dpi=72)
+anim.save('sterfte_anim.mp4', writer='ffmpeg', dpi=300, extra_args=['-vf', 'tpad=stop_mode=clone:stop_duration=5'])
