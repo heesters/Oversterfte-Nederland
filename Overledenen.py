@@ -98,7 +98,7 @@ ax.set_title(f"{sex}, {leeftijd}", fontsize=10, y=1.1)
 for suffix in 'png svg'.split():
     plt.savefig('sterfte_perjaar.'+suffix, dpi=200, bbox_inches='tight', facecolor='white')
 
-years = df_circle.loc[:, ~df_circle.columns.isin([2020, 2021, 2022, int(current_year)])] # excluding corona years and current year
+years = df_circle.loc[:, ~df_circle.columns.isin([2020, 2021, 2022, int(current_year)])] # excluding corona years and current year (for now)
 
 mean = years.mean(skipna=True,axis=1)
 mean[53] = mean[1]
