@@ -75,7 +75,7 @@ def setup_polar_plot(figsize=(8, 6), constrained_layout=True):
     ax.set_xticklabels(months)
 
     ax.set_rlabel_position(180)
-#    ax.set_yticklabels(['1000', '2000', '3000', '4000', '5000', ''])
+#   ax.set_yticklabels(['1000', '2000', '3000', '4000', '5000', ''])
 
     return fig, ax
 
