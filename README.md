@@ -12,8 +12,6 @@ Geen correcties voor vergrijzing/bevolkingsgroei etc., ook geen selectie voor co
 Data is beschikbaar vanaf 1995, maar voor de relevantie (en lengte) kijk ik hier naar de laatste 10 jaar. Dit is simpel aan te passen in de code.
 Voor de mediaan, SD en min-max zijn de jaren 2020 en 2021 uitgesloten omdat het doel is om te kijken naar het verschil met deze corona-jaren.
 
-![Overledenen in Nederland](https://github.com/heesters/Oversterfte-Nederland/blob/main/sterfte_anim.gif?raw=true)
-
 ![Overledenen in Nederland](https://github.com/heesters/Oversterfte-Nederland/blob/main/sterfte_perjaar.svg?raw=true&sanitize=true)
 
 ![Naar leeftijd en geslacht](https://github.com/heesters/Oversterfte-Nederland/blob/main/naar_Geslacht_leeftijd.svg?raw=true&sanitize=true)
