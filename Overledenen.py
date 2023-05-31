@@ -81,15 +81,15 @@ def setup_polar_plot(figsize=(8, 6), constrained_layout=True):
     return fig, ax
 
 fig, ax = setup_polar_plot()
-plot_year(ax, int(current_year)-10, linewidth=0.5, linestyle='dotted')
-plot_year(ax, int(current_year)-9, linewidth=0.5, linestyle='dotted')
-plot_year(ax, int(current_year)-8, linewidth=0.5, linestyle='dotted')
-plot_year(ax, int(current_year)-7, linewidth=0.5, linestyle='dotted')
+plot_year(ax, int(current_year)-10, linewidth=0.1)
+plot_year(ax, int(current_year)-9, linewidth=0.2)
+plot_year(ax, int(current_year)-8, linewidth=0.3)
+plot_year(ax, int(current_year)-7, linewidth=0.4)
 plot_year(ax, int(current_year)-6, linewidth=0.5)
-plot_year(ax, int(current_year)-5, linewidth=0.5)
-plot_year(ax, int(current_year)-4, linewidth=0.5)
-plot_year(ax, int(current_year)-3, linewidth=0.5)
-plot_year(ax, int(current_year)-2, color='tab:red', linewidth=2, linestyle='dotted')
+plot_year(ax, int(current_year)-5, linewidth=0.6)
+plot_year(ax, int(current_year)-4, linewidth=0.7)
+plot_year(ax, int(current_year)-3, linewidth=0.8)
+plot_year(ax, int(current_year)-2, color='tab:red', linewidth=1, linestyle='dotted')
 plot_year(ax, int(current_year)-1, color='tab:orange', linewidth=2)
 plot_year(ax, int(current_year), color='tab:green', linewidth=3)
 
@@ -140,11 +140,6 @@ ax.set_title(f"{sex}, {leeftijd}, median excludes 2020-2023", fontsize=10, y=1.1
 for suffix in 'png svg'.split():
     plt.savefig('sterfte_median.'+suffix, dpi=200, bbox_inches='tight', facecolor='white')
 
-
-
-fig.legend(loc='lower right')
-for suffix in 'png svg'.split():
-    plt.savefig('sterfte_anim.'+suffix, bbox_inches='tight', facecolor='white')
 
 start_year = 2010
 
