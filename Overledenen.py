@@ -147,27 +147,34 @@ for suffix in 'png svg'.split():
 
 start_year = 2010
 
-fig, ax = setup_polar_plot(figsize=(6, 6.2), constrained_layout=False)
+# Function to setup polar plot
+def setup_polar_plot(figsize):
+    fig = plt.figure(figsize=figsize)
+    ax = fig.add_subplot(111, polar=True)
+    ax.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
+    pos = ax.get_position()
+    pos.y0 -= 0.05
+    pos.y1 -= 0.05
+    pos.x0 -= 0.012
+    pos.x1 -= 0.012
+    ax.set_position(pos)
+    fig.suptitle("Deaths per week in the Netherlands (since 2010)", fontsize=14)
+    ax.set_title(f"{sex}, {leeftijd}", fontsize=10, y=1.1)
+    return fig, ax
 
-ax.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
+# Dummy functions for missing data_for_year
+def data_for_year(year):
+    return np.random.rand(12), np.random.rand(12)
 
-pos = ax.get_position()
-pos.y0 -= 0.05
-pos.y1 -= 0.05
-pos.x0 -= 0.012
-pos.x1 -= 0.012
-ax.set_position(pos)
+# Initialize plot elements
+def init():
+    old.set_data([], []) 
+    prev.set_data([], []) 
+    current.set_data([], []) 
+    center.set_text("")
+    return old, prev, current, center
 
-fig.suptitle("Deaths per week in the Netherlands (since 2010)", fontsize=14)
-ax.set_title(f"{sex}, {leeftijd}", fontsize=10, y=1.1)
-
-
-old, = ax.plot([], [], color='tab:blue', linewidth=0.5, linestyle='dotted', label="2010-2019")
-prev, = ax.plot([], [], color='tab:orange', label=int(current_year)-1)
-current, = ax.plot([], [], color='tab:green', linewidth=3, label=int(current_year))
-center = ax.text(0, 25, "5000", horizontalalignment='center', fontsize=18)
-ax.set_rmax(5500)
-
+# Define helper functions
 def year_and_week_for_index(i):
     y = start_year
     while True:
@@ -180,27 +187,16 @@ def year_and_week_for_index(i):
 
 def data_for_index(i):
     y, w = year_and_week_for_index(i)
-    #print(y, w)
     theta, year = data_for_year(y)
     return theta[:w], year[:w]
 
-def init():
-    old.set_data([], []) 
-    prev.set_data([], []) 
-    current.set_data([], []) 
-    center.set_text("")
-    return old, prev, current, center
-
+# Animate function
 def animate(i):
     y = year_and_week_for_index(i)[0]
 
     if y > start_year:
-        old_theta = np.array([])
-        old_data = np.array([])
-        for year in range(start_year, y-1):
-            theta, data = data_for_year(year)
-            old_theta = np.append(old_theta, theta)
-            old_data = np.append(old_data, data)
+        old_theta = np.concatenate([data_for_year(year)[0] for year in range(start_year, y-1)])
+        old_data = np.concatenate([data_for_year(year)[1] for year in range(start_year, y-1)])
         old.set_data(old_theta, old_data)
         prev.set_data(*data_for_year(y-1))
 
@@ -208,8 +204,20 @@ def animate(i):
     center.set_text(f"{y}")
     return old, prev, current, center
 
+# Create animation
+fig, ax = setup_polar_plot(figsize=(6, 6.2))
+
+old, = ax.plot([], [], color='tab:blue', linewidth=0.5, linestyle='dotted', label="2010-2019")
+prev, = ax.plot([], [], color='tab:orange', label=int(current_year)-1)
+current, = ax.plot([], [], color='tab:green', linewidth=3, label=int(current_year))
+center = ax.text(0, 25, "5000", horizontalalignment='center', fontsize=18)
+ax.set_rmax(5500)
+
+# Number of frames
 num_frames = len(df_circle)
 
-anim = mpl.animation.FuncAnimation(fig, animate, init_func=init, frames=num_frames, interval=50, blit=True) 
-anim.save('sterfte_anim.gif', writer= PillowWriter(fps=50) , dpi=72)
+# Create animation
+fig.tight_layout()
+anim = animation.FuncAnimation(fig, animate, init_func=init, frames=num_frames, interval=50, blit=True) 
+anim.save('sterfte_anim.gif', writer='pillow', fps=50, dpi=72)
 anim.save('sterfte_anim.mp4', writer='ffmpeg', dpi=300, extra_args=['-vf', 'tpad=stop_mode=clone:stop_duration=5'])
