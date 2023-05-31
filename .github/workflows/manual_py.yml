@@ -19,7 +19,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install  numpy pandas cbsodata seaborn matplotlib
+          pip install  numpy pandas cbsodata seaborn matplotlib pillow
       - name: excecute py script
         run: |
           python Overledenen.py
