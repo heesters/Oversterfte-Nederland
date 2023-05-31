@@ -218,6 +218,6 @@ num_frames = len(df_circle)
 
 # Create animation
 fig.tight_layout()
-anim = animation.FuncAnimation(fig, animate, init_func=init, frames=num_frames, interval=50, blit=True) 
+anim = animate.FuncAnimation(fig, animate, init_func=init, frames=num_frames, interval=50, blit=True) 
 anim.save('sterfte_anim.gif', writer='pillow', fps=50, dpi=72)
 anim.save('sterfte_anim.mp4', writer='ffmpeg', dpi=300, extra_args=['-vf', 'tpad=stop_mode=clone:stop_duration=5'])
