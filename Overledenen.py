@@ -3,7 +3,8 @@ import pandas as pd
 import cbsodata
 import seaborn as sns
 import matplotlib as mpl
-from matplotlib import pyplot as plt
+import matplotlib.animation as animation
+import matplotlib.pyplot as plt
 from matplotlib.animation import PillowWriter
 
 data = pd.DataFrame(cbsodata.get_data('70895ned'))
@@ -218,6 +219,6 @@ num_frames = len(df_circle)
 
 # Create animation
 fig.tight_layout()
-anim = animate.FuncAnimation(fig, animate, init_func=init, frames=num_frames, interval=50, blit=True) 
+anim = animation.FuncAnimation(fig, animate, init_func=init, frames=num_frames, interval=50, blit=True) 
 anim.save('sterfte_anim.gif', writer='pillow', fps=50, dpi=72)
 anim.save('sterfte_anim.mp4', writer='ffmpeg', dpi=300, extra_args=['-vf', 'tpad=stop_mode=clone:stop_duration=5'])
