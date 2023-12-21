@@ -5,7 +5,6 @@ import seaborn as sns
 import matplotlib as mpl
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
-from matplotlib.animation import PillowWriter
 
 data = pd.DataFrame(cbsodata.get_data('70895ned'))
 data.dropna(subset = ["Overledenen_1"], inplace=True)
@@ -139,81 +138,3 @@ fig.suptitle(f"Deaths per week in the Netherlands (since 2010)", fontsize=14, y=
 ax.set_title(f"{sex}, {leeftijd}, median excludes 2020-2023", fontsize=10, y=1.1)
 for suffix in 'png svg'.split():
     plt.savefig('sterfte_median.'+suffix, dpi=200, bbox_inches='tight', facecolor='white')
-
-
-start_year = 2010
-
-# Function to setup polar plot
-def setup_polar_plot(figsize):
-    fig = plt.figure(figsize=figsize)
-    ax = fig.add_subplot(111, polar=True)
-    ax.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
-    pos = ax.get_position()
-    pos.y0 -= 0.05
-    pos.y1 -= 0.05
-    pos.x0 -= 0.012
-    pos.x1 -= 0.012
-    ax.set_position(pos)
-    fig.suptitle("Deaths per week in the Netherlands (since 2010)", fontsize=14)
-    ax.set_title(f"{sex}, {leeftijd}", fontsize=10, y=1.1)
-    return fig, ax
-
-# Dummy functions for missing data_for_year
-def data_for_year(year):
-    return np.random.rand(12), np.random.rand(12)
-
-# Initialize plot elements
-def init():
-    old.set_data([], []) 
-    prev.set_data([], []) 
-    current.set_data([], []) 
-    center.set_text("")
-    return old, prev, current, center
-
-# Define helper functions
-def year_and_week_for_index(i):
-    y = start_year
-    while True:
-        len_year = len(df_circle[y].dropna()) + 1
-        if len_year > i:
-            return (y, i+1)
-        else:
-            y += 1
-            i -= (len_year-1)
-
-def data_for_index(i):
-    y, w = year_and_week_for_index(i)
-    theta, year = data_for_year(y)
-    return theta[:w], year[:w]
-
-# Animate function
-def animate(i):
-    y = year_and_week_for_index(i)[0]
-
-    if y > start_year:
-        old_theta = np.concatenate([data_for_year(year)[0] for year in range(start_year, y-1)])
-        old_data = np.concatenate([data_for_year(year)[1] for year in range(start_year, y-1)])
-        old.set_data(old_theta, old_data)
-        prev.set_data(*data_for_year(y-1))
-
-    current.set_data(*data_for_index(i))
-    center.set_text(f"{y}")
-    return old, prev, current, center
-
-# Create animation
-fig, ax = setup_polar_plot(figsize=(6, 6.2))
-
-old, = ax.plot([], [], color='tab:blue', linewidth=0.5, linestyle='dotted', label="2010-2019")
-prev, = ax.plot([], [], color='tab:orange', label=int(current_year)-1)
-current, = ax.plot([], [], color='tab:green', linewidth=3, label=int(current_year))
-center = ax.text(0, 25, "5000", horizontalalignment='center', fontsize=18)
-ax.set_rmax(5500)
-
-# Number of frames
-num_frames = len(df_circle)
-
-# Create animation
-fig.tight_layout()
-anim = animation.FuncAnimation(fig, animate, init_func=init, frames=num_frames, interval=50, blit=True) 
-anim.save('sterfte_anim.gif', writer='pillow', fps=50, dpi=72)
-anim.save('sterfte_anim.mp4', writer='ffmpeg', dpi=300, extra_args=['-vf', 'tpad=stop_mode=clone:stop_duration=5'])
