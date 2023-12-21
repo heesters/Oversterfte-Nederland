@@ -28,5 +28,6 @@ jobs:
         run: |
           git config --global user.name 'heesters'
           git config --global user.email 'heesters@users.noreply.github.com'
+          git add sterfte_median_optim.png sterfte_median_optim.svg
           git commit -am "Update graphs"
           git push
