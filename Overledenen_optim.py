@@ -65,9 +65,10 @@ ax.plot(np.linspace(0, 2 * np.pi, len(median)), median, label="Median", linestyl
 years_to_plot = [2020, 2021, 2022, current_year]
 for i in years_to_plot:
     year_data = df_circle[i].dropna().to_numpy()
+    linewidth = max(i - (int(current_year) - 2), 0.5)  # Ensure linewidth is positive
     ax.plot(np.linspace(0, (len(year_data) / 52) * 2 * np.pi, len(year_data)), year_data,
-            label=f"{i}", linewidth=i - (int(current_year) - 2) if i >= int(current_year) - 2 else 2, linestyle='dotted')
-
+            label=f"{i}", linewidth=linewidth, linestyle='dotted')
+    
 # Add legend and titles
 ax.legend(loc='lower right')
 fig.suptitle(f"Deaths per week in the Netherlands (since 2010)", fontsize=14, y=1.04)
