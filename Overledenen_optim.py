@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import cbsodata
 import matplotlib.pyplot as plt
+from matplotlib.dates import DateFormatter
+from matplotlib.ticker import MaxNLocator
 
 # Data Retrieval and Cleaning
 data = pd.DataFrame(cbsodata.get_data('70895ned'))
@@ -95,6 +97,14 @@ for i in years_to_plot:
 
 # Add legend and titles
 ax.legend(loc='lower right')
+
+# Configure the radial axis ticks and labels for months
+ax.set_xticks(np.linspace(0, 2 * np.pi, 12, endpoint=False))
+ax.set_xticklabels(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
+
+# Ensure the y-axis labels are displayed properly
+ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+
 fig.suptitle(f"Deaths per week in the Netherlands (since 2010)", fontsize=14, y=1.04)
 ax.set_title(f"{sex}, {leeftijd}, median", fontsize=10, y=1.1)
 
