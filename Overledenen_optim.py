@@ -52,14 +52,38 @@ df_circle = df_circle.pivot(index='week', columns='year', values='deaths')
 years_except_current = df_circle.loc[:, ~df_circle.columns.isin([current_year])]
 
 # Calculate statistical measures
+mean = years_except_current.mean(skipna=True, axis=1)
+mean[53] = mean[1]
+
 median = years_except_current.median(skipna=True, axis=1)
 median[53] = median[1]
+
+min_val = years_except_current.min(axis=1)
+min_val[53] = min_val[1]
+
+max_val = years_except_current.max(axis=1)
+max_val[53] = max_val[1]
+
+std_dev = years_except_current.std(axis=1)
+std_dev[53] = std_dev[1]
+
+q25 = df_circle.astype(float).quantile(0.25, axis=1)
+q25[53] = q25[1]
+
+q75 = df_circle.astype(float).quantile(0.75, axis=1)
+q75[53] = q75[1]
 
 # Setup polar plot for statistical measures
 fig, ax = plt.subplots(figsize=(8, 6), subplot_kw=dict(projection='polar'))
 
 # Plot median as dashed line
 ax.plot(np.linspace(0, 2 * np.pi, len(median)), median, label="Median", linestyle='dashed')
+
+# Plot shaded region for standard deviation
+ax.fill_between(np.linspace(0, 2 * np.pi, len(mean)), mean + std_dev, mean - std_dev, alpha=0.3, label="SD", color='tab:blue')
+
+# Plot lines for min and max
+ax.fill_between(np.linspace(0, 2 * np.pi, len(min_val)), min_val, max_val, alpha=0.2, label="Min/Max")
 
 # Plot individual years
 years_to_plot = [2020, 2021, 2022, current_year]
@@ -68,7 +92,7 @@ for i in years_to_plot:
     linewidth = max(i - (int(current_year) - 2), 0.5)  # Ensure linewidth is positive
     ax.plot(np.linspace(0, (len(year_data) / 52) * 2 * np.pi, len(year_data)), year_data,
             label=f"{i}", linewidth=linewidth, linestyle='dotted')
-    
+
 # Add legend and titles
 ax.legend(loc='lower right')
 fig.suptitle(f"Deaths per week in the Netherlands (since 2010)", fontsize=14, y=1.04)
@@ -76,4 +100,4 @@ ax.set_title(f"{sex}, {leeftijd}, median", fontsize=10, y=1.1)
 
 # Save the polar plot with statistical measures
 for suffix in 'png svg'.split():
-    plt.savefig('sterfte_median_optim.' + suffix, dpi=200, bbox_inches='tight')
+    plt.savefig('sterfte_median_optim_enhanced.' + suffix, dpi=200, bbox_inches='tight')
