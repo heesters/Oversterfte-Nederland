@@ -2,37 +2,39 @@ import numpy as np
 import pandas as pd
 import cbsodata
 import matplotlib.pyplot as plt
-import seaborn as sns
 
 # Data Retrieval and Cleaning
 data = pd.DataFrame(cbsodata.get_data('70895ned'))
 data.dropna(subset=["Overledenen_1"], inplace=True)
 
 # Filter and clean data
-df_clean = data[data.Perioden.str.contains('week')].reset_index(drop=True)
-df_clean = df_clean[~df_clean.Perioden.str.contains('1995 week 0')].reset_index(drop=True)
-df_clean = df_clean.drop(columns=['ID'])
+df_clean = (
+    data[data.Perioden.str.contains('week')]
+    .loc[~data.Perioden.str.contains('1995 week 0')]
+    .drop(columns=['ID'])
+    .reset_index(drop=True)
+)
 
 # Calculate weekly death counts using numpy vectorized operations
 df_clean['to_first_week'] = df_clean.Perioden.str.contains('dag') & df_clean.Perioden.str.contains('week 1')
 df_clean['to_last_week'] = df_clean.Perioden.str.contains('dag') & df_clean.Perioden.shift(-1).str.contains('week 0')
 df_clean['partial_week'] = df_clean.Perioden.str.contains('dag')
-df_clean['deaths'] = np.where(df_clean['to_first_week'],
-                              df_clean['Overledenen_1'].shift(+1) + df_clean['Overledenen_1'],
-                              np.where(df_clean['to_last_week'],
-                                       df_clean['Overledenen_1'].shift(-1) + df_clean['Overledenen_1'],
-                                       df_clean['Overledenen_1']))
+df_clean['deaths'] = (
+    np.where(df_clean['to_first_week'], df_clean['Overledenen_1'].shift(+1) + df_clean['Overledenen_1'], 0) +
+    np.where(df_clean['to_last_week'], df_clean['Overledenen_1'].shift(-1) + df_clean['Overledenen_1'], 0) +
+    np.where(~df_clean['to_first_week'] & ~df_clean['to_last_week'] & ~df_clean['partial_week'], df_clean['Overledenen_1'], 0)
+)
 
 # Filter and rename columns
-df_clean = df_clean.dropna(subset=["deaths"]).reset_index(drop=True)
-df_clean[['year', 'week']] = df_clean.Perioden.str.extract('(\d+) week (\d+)')
-df_clean[['week', 'year', 'deaths']] = df_clean[['week', 'year', 'deaths']].astype(int)
-df_clean = df_clean.drop(columns=['Overledenen_1', 'to_first_week', 'to_last_week', 'partial_week'])
-df_clean = df_clean.rename(columns={"LeeftijdOp31December": "age", "Geslacht": "gender"})
-df_clean = df_clean[['Perioden', 'gender', 'age', 'year', 'week', 'deaths']]
-
-# Filter data for the years 2010 and later
-df_clean = df_clean[df_clean.Perioden >= '2010'].reset_index(drop=True)
+df_clean = (
+    df_clean.dropna(subset=["deaths"])
+    .assign(year=df_clean.Perioden.str.extract('(\d+) week (\d+)')[0].astype(int),
+            week=df_clean.Perioden.str.extract('(\d+) week (\d+)')[1].astype(int))
+    .drop(columns=['Overledenen_1', 'to_first_week', 'to_last_week', 'partial_week'])
+    .rename(columns={"LeeftijdOp31December": "age", "Geslacht": "gender"})
+    .loc[df_clean.Perioden >= '2010']
+    .reset_index(drop=True)
+)
 
 # Categorize data based on COVID-19 years
 df_clean['covid_year'] = np.where(df_clean['year'] >= 2020, df_clean['year'], '2010-2019 +/- SD')
