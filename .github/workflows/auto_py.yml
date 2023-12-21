@@ -25,7 +25,7 @@ jobs:
           pip install  numpy pandas cbsodata seaborn matplotlib
       - name: excecute py script
         run: |
-          python Overledenen_optim.py
+          python Overledenen.py
           
       - name: Update graphs
         run: |
