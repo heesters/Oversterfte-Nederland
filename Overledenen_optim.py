@@ -73,6 +73,4 @@ ax.set_title(f"{sex}, {leeftijd}, median", fontsize=10, y=1.1)
 
 # Save the polar plot with statistical measures
 for suffix in 'png svg'.split():
-    plt.savefig('sterfte_median_optim.' + suffix, dpi=200, bbox_inches='tight', facecolor='white')
-
-plt.show()
+    plt.savefig('sterfte_median_optim.' + suffix, dpi=200, bbox_inches='tight')
