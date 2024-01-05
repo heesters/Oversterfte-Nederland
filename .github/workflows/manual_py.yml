@@ -22,12 +22,12 @@ jobs:
           pip install  numpy pandas cbsodata seaborn matplotlib
       - name: excecute py script
         run: |
-          python Overledenen_optim.py
+          python Overledenen.py
           
       - name: Update graphs
         run: |
           git config --global user.name 'heesters'
           git config --global user.email 'heesters@users.noreply.github.com'
-          git add sterfte_median_optim.png sterfte_median_optim.svg
           git commit -am "Update graphs"
           git push
+
