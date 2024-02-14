@@ -31,7 +31,7 @@ df_clean = df_clean[['Perioden','gender','age','year','week','deaths']]
 
 current_year = df_clean['year'].max()
 
-df_clean=df_clean[df_clean.Perioden >= current_year-10].reset_index(drop=True)
+df_clean=df_clean[df_clean.Perioden >= int(current_year)-10].reset_index(drop=True)
 
 months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
 
