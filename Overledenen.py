@@ -29,16 +29,13 @@ df_clean = df_clean.drop(columns = ['Overledenen_1','to_first_week','to_last_wee
 df_clean = df_clean.rename(columns={"LeeftijdOp31December": "age", "Geslacht": "gender"})
 df_clean = df_clean[['Perioden','gender','age','year','week','deaths']]
 
-df_clean=df_clean[df_clean.Perioden >= '2010'].reset_index(drop=True)
-
-df_clean['covid_year']=df_clean['year'] >= 2020
-df_clean.loc[df_clean['covid_year'] == False, 'covid_year'] = '2010-2019 +/- SD'
-df_clean.loc[df_clean['covid_year'] == True, 'covid_year'] = df_clean['year']
-
-months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
 current_year = df_clean['year'].max()
 
-g = sns.FacetGrid(df_clean, col="gender", hue="covid_year", palette=["dodgerblue","red","orange", "green"], row='age', aspect=2,sharey=False)
+df_clean=df_clean[df_clean.Perioden >= current_year-10].reset_index(drop=True)
+
+months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
+
+g = sns.FacetGrid(df_clean, col="gender", hue="year", row='age', aspect=2,sharey=False)
 g.map(sns.lineplot, 'week', 'deaths', alpha=.7, estimator='mean', errorbar='sd')
 g.set(xlabel="month", ylabel = "deaths per week", xticks=np.arange(1, 53,(53/12) ), xticklabels=months)
 g.add_legend(title = '')
@@ -98,7 +95,7 @@ ax.set_title(f"{sex}, {leeftijd}", fontsize=10, y=1.1)
 for suffix in 'png svg'.split():
     plt.savefig('sterfte_perjaar.'+suffix, dpi=200, bbox_inches='tight', facecolor='white')
 
-years = df_circle.loc[:, ~df_circle.columns.isin([2020, 2021, 2022, int(current_year)])] # excluding corona years and current year (for now)
+years = df_circle.loc[:, ~df_circle.columns.isin([ int(current_year)])] # excluding current year
 
 mean = years.mean(skipna=True,axis=1)
 mean[53] = mean[1]
@@ -134,7 +131,7 @@ plot_year(ax, int(current_year)-1, color='tab:orange', linewidth=2)
 plot_year(ax, int(current_year), color='tab:green', linewidth=3)
 
 fig.legend(loc='lower right')
-fig.suptitle(f"Deaths per week in the Netherlands (since 2010)", fontsize=14, y=1.04)
-ax.set_title(f"{sex}, {leeftijd}, median excludes 2020-2023", fontsize=10, y=1.1)
+fig.suptitle(f"Deaths per week in the Netherlands (since ",current_year-10,")", fontsize=14, y=1.04)
+ax.set_title(f"{sex}, {leeftijd}, median", fontsize=10, y=1.1)
 for suffix in 'png svg'.split():
     plt.savefig('sterfte_median.'+suffix, dpi=200, bbox_inches='tight', facecolor='white')
