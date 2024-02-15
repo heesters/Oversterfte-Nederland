@@ -125,9 +125,8 @@ ax.fill_between(np.linspace(0, 2*np.pi, len(min)), mean+sd, mean-sd, alpha=0.3, 
 ax.fill_between(np.linspace(0, 2*np.pi, len(min)), min, max, alpha=0.2, label="Min/Max")
 
 ax.plot(np.linspace(0, 2*np.pi, len(median)), median, label="Median", linestyle='dashed')
-plot_year(ax, int(current_year)-3, color='tab:red', linewidth=2, linestyle='dotted')
-plot_year(ax, int(current_year)-2, color='tab:orange', linewidth=2, linestyle='dotted')
-plot_year(ax, int(current_year)-1, color='tab:orange', linewidth=2)
+plot_year(ax, int(current_year)-2, color='tab:orange', linewidth=1, linestyle='dotted')
+plot_year(ax, int(current_year)-1, color='tab:orange', linewidth=1.5)
 plot_year(ax, int(current_year), color='tab:green', linewidth=3)
 
 fig.legend(loc='lower right')
