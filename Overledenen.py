@@ -131,7 +131,7 @@ plot_year(ax, int(current_year)-1, color='tab:orange', linewidth=2)
 plot_year(ax, int(current_year), color='tab:green', linewidth=3)
 
 fig.legend(loc='lower right')
-fig.suptitle(f"Deaths per week in the Netherlands (since ",current_year-10,")", fontsize=14, y=1.04)
+fig.suptitle(f"Deaths per week in the Netherlands (since {current_year-10})", fontsize=14, y=1.04)
 ax.set_title(f"{sex}, {leeftijd}, median", fontsize=10, y=1.1)
 for suffix in 'png svg'.split():
     plt.savefig('sterfte_median.'+suffix, dpi=200, bbox_inches='tight', facecolor='white')
