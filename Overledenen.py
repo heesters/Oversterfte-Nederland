@@ -36,7 +36,14 @@ df_clean = df_clean[df_clean['Perioden'] >= str(int(current_year) - 10)].reset_i
 months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
 
 g = sns.FacetGrid(df_clean, col="gender", hue="year", row='age', aspect=2,sharey=False)
-g.map(sns.lineplot, 'week', 'deaths', alpha=.7, estimator='mean', errorbar='sd')
+g.map_dataframe(
+    sns.lineplot,
+    x='week',
+    y='deaths',
+    alpha=.7,
+    estimator='mean',
+    errorbar='sd'
+)
 g.set(xlabel="month", ylabel = "deaths per week", xticks=np.arange(1, 53,(53/12) ), xticklabels=months)
 g.add_legend(title = '')
 for suffix in 'png svg'.split():
