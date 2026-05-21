@@ -367,3 +367,161 @@ anim.save('sterfte_anim_blog.gif', writer=PillowWriter(fps=fps), dpi=150, savefi
 plt.close()
 
 print(f"Animation created successfully! Locked at the final frame for a {pause_seconds} second pause.")
+
+# ==============================================================================
+# 5.3 DEMOGRAPHIC FACET GRIDS (SEX x AGE) — BOTH THEME STYLES
+# ==============================================================================
+target_ages = ['0 tot 65 jaar', '65 tot 80 jaar', '80 jaar of ouder']
+target_genders = ['Mannen', 'Vrouwen']
+
+# Define explicit configuration maps for both styles
+theme_configs = [
+    {
+        "name": "Scientific Theme",
+        "file_suffix": "naar_Geslacht_leeftijd",
+        "bg_canvas": "white",
+        "bg_face": "white",
+        "grid_color": "#E5E5E5",
+        "text_color": "#333333",
+        "spine_color": "#888888",
+        "title_color": "#212121",
+        "history_color": "#CFD8DC",
+        "c_2020": "#00838F", # Jewel tones
+        "c_2021": "#00695C",
+        "c_2022": "#2E7D32",
+        "c_prev2": "#78909C",
+        "c_prev1": "#37474F",
+        "c_current": "#D32F2F" # Classic Crimson
+    },
+    {
+        "name": "Modern Blog Theme",
+        "file_suffix": "naar_Geslacht_leeftijd_blog",
+        "bg_canvas": "#F7FAFC",
+        "bg_face": "#FFFFFF",
+        "grid_color": "#E2E8F0",
+        "text_color": "#4A5568",
+        "spine_color": "#CBD5E0",
+        "title_color": "#1A202C",
+        "history_color": "#CBD5E0",
+        "c_2020": "#0EA5E9", # Vivid blog palette
+        "c_2021": "#10B981",
+        "c_2022": "#6366F1",
+        "c_prev2": "#718096",
+        "c_prev1": "#4A5568",
+        "c_current": "#FF3366" # Neon Pink Coral
+    }
+]
+
+for config in theme_configs:
+    print(f"Generating demographic breakdown grids for: {config['name']}...")
+
+    # Initialize a 2 rows x 3 columns polar sub-grid mapping layout structure
+    fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(16, 11), subplot_kw={'projection': 'polar'})
+    fig.patch.set_facecolor(config["bg_canvas"])
+
+    for g_idx, gender_cat in enumerate(target_genders):
+        for a_idx, age_cat in enumerate(target_ages):
+            ax = axes[g_idx, a_idx]
+
+            # Apply theme styles to current axes coordinate space
+            ax.set_facecolor(config["bg_face"])
+            ax.set_theta_zero_location('N')
+            ax.set_theta_direction(-1)
+            ax.set_xticks(np.arange(0, 2 * np.pi, np.pi / 6))
+            ax.set_xticklabels(months, fontsize=8.5, color=config["text_color"], fontweight='bold' if "Blog" in config["name"] else 'normal')
+            ax.grid(True, color=config["grid_color"], linestyle='--', linewidth=0.5)
+            ax.spines['polar'].set_color(config["spine_color"])
+            ax.spines['polar'].set_linewidth(1.0 if "Blog" in config["name"] else 0.8)
+            ax.tick_params(axis='y', colors=config["text_color"], labelsize=7.5)
+            ax.set_rlabel_position(180)
+
+            # Filter targeted row slices specific to this demographic cell grid
+            df_sub = df_clean[(df_clean.age == age_cat) & (df_clean.gender == gender_cat)]
+            df_sub_circle = df_sub.pivot(index='week', columns='year', values='deaths')
+
+            # Encapsulated data-loop math functions reflecting the main loops
+            def get_sub_loop_data(y):
+                sub_active_week = df_sub[df_sub['year'] == current_year]['week'].max()
+                if y == current_year:
+                    wks = np.arange(1, sub_active_week + 1)
+                    vals = np.array([df_sub_circle.loc[w, y] if w in df_sub_circle.index else np.nan for w in wks])
+                    if pd.Series(vals).isna().any():
+                        vals = pd.Series(vals).interpolate(method='linear').bfill().ffill().to_numpy()
+                    th = ((wks - 1) / 52) * 2 * np.pi
+                    return th, vals
+
+                wks = np.arange(1, 53)
+                vals = np.array([df_sub_circle.loc[w, y] if w in df_sub_circle.index else np.nan for w in wks])
+                if pd.Series(vals).isna().any():
+                    vals = pd.Series(vals).interpolate(method='linear').bfill().ffill().to_numpy()
+
+                nxt_y = y + 1
+                if nxt_y in df_sub_circle.columns and 1 in df_sub_circle.index:
+                    nv = df_sub_circle.loc[1, nxt_y]
+                    if not pd.isna(nv):
+                        return np.linspace(0, 2 * np.pi, 53), np.append(vals, nv)
+                return np.linspace(0, 2 * np.pi, 53), np.append(vals, vals[0])
+
+            # 1. Base Layer: Historical Background Timelines
+            for y in range(start_year, current_year):
+                if y in exclude_years:
+                    continue
+                if y in df_sub_circle.columns:
+                    t, v = get_sub_loop_data(y)
+                    ax.plot(t, v, linewidth=0.4, color=config["history_color"], alpha=0.4)
+
+            # 2. Middle Layer: Pandemic Wave Overlays
+            if 2020 in df_sub_circle.columns:
+                t, v = get_sub_loop_data(2020)
+                ax.plot(t, v, color=config["c_2020"], linewidth=1.3, alpha=0.85)
+            if 2021 in df_sub_circle.columns:
+                t, v = get_sub_loop_data(2021)
+                ax.plot(t, v, color=config["c_2021"], linewidth=1.3, alpha=0.85)
+            if 2022 in df_sub_circle.columns:
+                t, v = get_sub_loop_data(2022)
+                ax.plot(t, v, color=config["c_2022"], linewidth=1.3, alpha=0.8)
+
+            # 3. Reference Context Trajectories
+            if (current_year - 2) in df_sub_circle.columns:
+                t, v = get_sub_loop_data(current_year - 2)
+                ax.plot(t, v, linestyle='dotted', color=config["c_prev2"], linewidth=1.3)
+            if (current_year - 1) in df_sub_circle.columns:
+                t, v = get_sub_loop_data(current_year - 1)
+                ax.plot(t, v, linestyle='solid', color=config["c_prev1"], linewidth=1.5)
+
+            # 4. Top Layer: Highlight Active Tracking System
+            if current_year in df_sub_circle.columns:
+                t, v = get_sub_loop_data(current_year)
+                ax.plot(t, v, color=config["c_current"], linewidth=2.5, zorder=10)
+
+                # Add explicit terminal dot marker endpoint matching tracker color
+                if len(t) > 0 and len(v) > 0:
+                    ax.plot(t[-1], v[-1], marker='o', markersize=5, color=config["c_current"],
+                            markeredgecolor=config["bg_face"], markeredgewidth=1, zorder=15)
+
+            # Clean subplot titles matching filter states
+            ax.set_title(f"{gender_cat} | {age_cat}", fontsize=11, fontweight='bold', color=config["title_color"], pad=14)
+
+    # Rebuild coordinated global legend elements matching theme maps
+    custom_legends = [
+        plt.Line2D([0], [0], color=config["history_color"], linewidth=1, label=f"Historical Baseline ({start_year}-{current_year-3})"),
+        plt.Line2D([0], [0], color=config["c_2020"], linewidth=1.5, label="2020 Pandemic Outbreak" if "Blog" in config["name"] else "2020 (COVID)"),
+        plt.Line2D([0], [0], color=config["c_2021"], linewidth=1.5, label="2021 Delta Wave" if "Blog" in config["name"] else "2021 (COVID)"),
+        plt.Line2D([0], [0], color=config["c_2022"], linewidth=1.5, label="2022 Omicron Shift" if "Blog" in config["name"] else "2022 (COVID)"),
+        plt.Line2D([0], [0], color=config["c_prev2"], linestyle='dotted', linewidth=1.5, label=f"{current_year - 2} Trend" if "Blog" in config["name"] else f"{current_year - 2}"),
+        plt.Line2D([0], [0], color=config["c_prev1"], linestyle='solid', linewidth=1.5, label=f"{current_year - 1} Trend" if "Blog" in config["name"] else f"{current_year - 1}"),
+        plt.Line2D([0], [0], color=config["c_current"], linewidth=2.5, label=f"Current Tracker ({current_year})" if "Blog" in config["name"] else f"{current_year}")
+    ]
+
+    fig.legend(handles=custom_legends, loc='lower center', ncol=4, frameon=True,
+               facecolor=config["bg_face"], edgecolor=config["grid_color"], fontsize=10, bbox_to_anchor=(0.5, 0.02))
+
+    fig.suptitle('Weekly Mortality Breakdown Across Demographic Groups', fontsize=18, fontweight='bold', color=config["title_color"], y=0.98)
+    plt.subplots_adjust(top=0.88, bottom=0.12, wspace=0.25, hspace=0.3)
+
+    # Save out both PNG and SVG targets for current color block index loop
+    for suffix in ['png', 'svg']:
+        plt.savefig(f"{config['file_suffix']}.{suffix}", dpi=300, bbox_inches='tight', facecolor=config["bg_canvas"])
+    plt.close()
+
+print("All demographic layout matrix variants generated successfully!")
