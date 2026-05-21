@@ -4,6 +4,7 @@ import cbsodata
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from matplotlib.animation import FuncAnimation, PillowWriter
 
 # ==========================================
 # 1. DATA ACQUISITION & TRANSITIONAL CLEANING
@@ -303,4 +304,66 @@ for suffix in ['png', 'svg']:
     plt.savefig(f'sterfte_median_blog.{suffix}', dpi=300, bbox_inches='tight', facecolor='#F7FAFC')
 plt.close()
 
-print("Execution completed successfully! Regular and light blog variants are saved.")
+
+# ==========================================
+# 6. ANIMATED TRACK GENERATOR (LIGHT BLOG-THEME)
+# ==========================================
+print("Compiling light-themed polar trend animations with a terminal pause...")
+fig, ax = setup_polar_plot(blog_mode=True)
+
+years_list = list(range(current_year - 25, current_year + 1))
+total_years = len(years_list)
+
+# --- PAUSE CONFIGURATION ---
+pause_seconds = 3.0    # How many seconds you want the GIF to freeze at the final frame
+frame_interval = 200   # ms per frame (matching your interval)
+fps = 1000 / frame_interval # Frames per second (5 fps)
+extra_frames = int(pause_seconds * fps) # Calculate required duplicate padding frames
+
+# Total frames becomes the historical data series + the freeze duration frames
+total_frames = total_years + extra_frames
+
+line_hist, = ax.plot([], [], color='#CBD5E0', alpha=0.4, linewidth=0.5)
+line_curr, = ax.plot([], [], color='#FF3366', linewidth=3.5, zorder=10)
+center_label = ax.text(0, 0, '', ha='center', va='center', fontsize=16, fontweight='bold', color='#1A202C')
+
+def init():
+    line_hist.set_data([], [])
+    line_curr.set_data([], [])
+    center_label.set_text('')
+    return line_hist, line_curr, center_label
+
+def update_frame(frame):
+    # CRITICAL: Clamp the frame index to the maximum data boundary.
+    # When 'frame' enters the padding window, it locks onto the final year index.
+    clamped_idx = min(frame, total_years - 1)
+    y = years_list[clamped_idx]
+
+    t, v = data_for_year(y)
+
+    if y == current_year:
+        line_curr.set_data(t, v)
+        # Explicitly plot the full terminal marker box during the freeze window
+        if frame == total_years - 1:
+            add_terminal_marker(ax, t, v, blog_mode=True)
+    else:
+        if y == 2020:
+            ax.plot(t, v, color='#0EA5E9', linewidth=1.4, alpha=0.8)
+        elif y == 2021:
+            ax.plot(t, v, color='#10B981', linewidth=1.4, alpha=0.8)
+        elif y == 2022:
+            ax.plot(t, v, color='#6366F1', linewidth=1.4, alpha=0.7)
+        else:
+            ax.plot(t, v, color='#CBD5E0', alpha=0.4, linewidth=0.5)
+
+    center_label.set_text(f"{y}")
+    return line_hist, line_curr, center_label
+
+# Pass total_frames (which contains the calculated trailing padding) to the runner
+anim = FuncAnimation(fig, update_frame, init_func=init, frames=total_frames, interval=frame_interval, blit=True)
+
+# Save the updated animation file
+anim.save('sterfte_anim_blog.gif', writer=PillowWriter(fps=fps), dpi=150, savefig_kwargs={'facecolor': '#F7FAFC'})
+plt.close()
+
+print(f"Animation created successfully! Locked at the final frame for a {pause_seconds} second pause.")
