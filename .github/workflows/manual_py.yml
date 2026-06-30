@@ -19,7 +19,7 @@ jobs:
           pip install numpy pandas requests seaborn matplotlib
 
       - name: execute py script
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 15
           max_attempts: 3
