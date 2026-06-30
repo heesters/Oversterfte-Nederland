@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
-import cbsodata
+import requests
+import time
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -9,8 +10,84 @@ from matplotlib.animation import FuncAnimation, PillowWriter
 # ==========================================
 # 1. DATA ACQUISITION & TRANSITIONAL CLEANING
 # ==========================================
-print("Fetching data from CBS OData...")
-data = pd.DataFrame(cbsodata.get_data('70895ned'))
+CBS_V4_BASE = "https://datasets.cbs.nl/odata/v1/CBS"
+TABLE_ID = "70895ned"
+
+
+def _get_json_with_retry(url, retries=5, base_delay=15, timeout=60):
+    """GET a URL as JSON, retrying with backoff on transient failures."""
+    last_err = None
+    for attempt in range(1, retries + 1):
+        try:
+            r = requests.get(url, timeout=timeout)
+            r.raise_for_status()
+            return r.json()
+        except Exception as e:
+            last_err = e
+            wait = base_delay * attempt
+            print(f"  Attempt {attempt}/{retries} failed for {url} ({e!r}); retrying in {wait}s...")
+            if attempt < retries:
+                time.sleep(wait)
+    raise RuntimeError(f"Failed to fetch {url} after {retries} attempts. Last error: {last_err}")
+
+
+def get_odata_v4_collection(table_id, collection, retries=5, base_delay=15):
+    """Fetch a full OData v4 collection (following @odata.nextLink pagination) as a DataFrame."""
+    url = f"{CBS_V4_BASE}/{table_id}/{collection}"
+    rows = []
+    while url:
+        payload = _get_json_with_retry(url, retries=retries, base_delay=base_delay)
+        rows.extend(payload.get("value", []))
+        url = payload.get("@odata.nextLink")
+    return pd.DataFrame(rows)
+
+
+def fetch_cbs_table_v4(table_id, retries=5, base_delay=15):
+    """
+    Fetches table_id from CBS's current OData v4 API and reshapes the long-format
+    Observations back into the same wide layout the rest of this script expects:
+    one row per Perioden x Geslacht x LeeftijdOp31December, with the death count
+    in 'Overledenen_1'. Keeps all downstream logic (week-transition handling,
+    pivoting, etc.) completely unchanged.
+    """
+    print(f"Fetching data from CBS OData v4 ({table_id})...")
+
+    obs = get_odata_v4_collection(table_id, "Observations", retries, base_delay)
+
+    print("  Fetching dimension code tables...")
+    measure_codes = get_odata_v4_collection(table_id, "MeasureCodes", retries, base_delay)
+    geslacht_codes = get_odata_v4_collection(table_id, "GeslachtCodes", retries, base_delay)
+    leeftijd_codes = get_odata_v4_collection(table_id, "LeeftijdOp31DecemberCodes", retries, base_delay)
+    perioden_codes = get_odata_v4_collection(table_id, "PeriodenCodes", retries, base_delay)
+
+    # This table has a single "deaths" measure; find it by title rather than
+    # hardcoding its v4 identifier (identifiers changed between v3 and v4).
+    death_measure = measure_codes[measure_codes["Title"].str.contains("Overledenen", case=False, na=False)]
+    if death_measure.empty:
+        raise RuntimeError(f"Could not find an 'Overledenen' measure in MeasureCodes for table {table_id}")
+    measure_id = death_measure.iloc[0]["Identifier"]
+
+    obs = obs[obs["Measure"] == measure_id].copy()
+
+    # Map v4 dimension codes back to the human-readable labels v3/cbsodata used.
+    geslacht_map = geslacht_codes.set_index("Identifier")["Title"].to_dict()
+    leeftijd_map = leeftijd_codes.set_index("Identifier")["Title"].to_dict()
+    perioden_map = perioden_codes.set_index("Identifier")["Title"].to_dict()
+
+    obs["Geslacht"] = obs["Geslacht"].map(geslacht_map)
+    obs["LeeftijdOp31December"] = obs["LeeftijdOp31December"].map(leeftijd_map)
+    obs["Perioden"] = obs["Perioden"].map(perioden_map)
+    obs["Overledenen_1"] = pd.to_numeric(obs["Value"], errors="coerce")
+
+    missing = obs[obs[["Geslacht", "LeeftijdOp31December", "Perioden"]].isna().any(axis=1)]
+    if not missing.empty:
+        print(f"  Warning: {len(missing)} observation(s) had unmapped codes and were dropped.")
+        obs = obs.dropna(subset=["Geslacht", "LeeftijdOp31December", "Perioden"])
+
+    return obs[["Perioden", "Geslacht", "LeeftijdOp31December", "Overledenen_1"]].reset_index(drop=True)
+
+
+data = fetch_cbs_table_v4(TABLE_ID)
 data.dropna(subset=["Overledenen_1"], inplace=True)
 
 df_clean = data[data.Perioden.str.contains('week')].copy()
