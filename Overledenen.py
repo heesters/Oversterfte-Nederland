@@ -1,604 +1,547 @@
+"""Weekly deaths in the Netherlands (CBS table 70895ned) as polar charts.
+
+Writes PNG/SVG charts and one GIF animation into the current directory.
+"""
+import io
+import time
+
+import matplotlib
+
+matplotlib.use("Agg")  # headless rendering; no GUI windows needed
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import requests
-import time
-import seaborn as sns
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from matplotlib.animation import FuncAnimation, PillowWriter
+from PIL import Image
+
+# Deterministic SVG output: without this every run produces different element
+# ids, so the files change (and get committed) even when the data did not.
+plt.rcParams["svg.hashsalt"] = "oversterfte-nederland"
+
+CBS_V4_BASE = "https://datasets.cbs.nl/odata/v1/CBS"
+TABLE_ID = "70895ned"
+TOTAL_AGE = "Totaal leeftijd"
+TOTAL_SEX = "Totaal mannen en vrouwen"
+FACET_AGES = ["0 tot 65 jaar", "65 tot 80 jaar", "80 jaar of ouder"]
+FACET_SEXES = ["Mannen", "Vrouwen"]
+COVID_YEARS = (2020, 2021, 2022)
+
+MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"]
+MONTH_TICKS = np.arange(0, 2 * np.pi, np.pi / 6)
+THETA_FULL = np.linspace(0, 2 * np.pi, 53)
+
+# ==========================================
+# THEMES
+# ==========================================
+SCIENTIFIC = {
+    "name": "Scientific Theme",
+    "file_suffix": "",
+    "dpi": 200,
+    "bg_canvas": "white",
+    "bg_face": "white",
+    "grid_color": "#E5E5E5",
+    "text_color": "#333333",
+    "spine_color": "#888888",
+    "spine_width": 0.8,
+    "tick_weight": "normal",
+    "title_color": "#212121",
+    "title_size": 14,
+    "title_y": 1.04,
+    "subtitle_color": "#616161",
+    "history_color": "#CFD8DC",
+    "covid_colors": {2020: "#00838F", 2021: "#00695C", 2022: "#2E7D32"},  # jewel tones
+    "covid_labels": {2020: "2020 (COVID)", 2021: "2021 (COVID)", 2022: "2022 (COVID)"},
+    "c_prev2": "#78909C",
+    "c_prev1": "#37474F",
+    "c_current": "#D32F2F",  # classic crimson
+    "prev_label": "{year}",
+    "current_label": "{year}",
+    "legend_edge": "#E0E0E0",
+    "legend_text": None,
+    # per-figure details
+    "overlay": {
+        "history": {"linewidth": 0.4, "alpha": 0.4},
+        "history_legend": {"alpha": 0.7, "label": "History ({first}-{last})"},
+        "covid_lw": 1.5, "covid_alpha": None, "prev_lw": (1.5, 1.8), "current_lw": 3.2,
+        "legend_x": 1.25,
+        "suptitle": "Deaths in the Netherlands per week",
+        "title": "{sex}, {age}\nHighlighting Pandemic anomalies across complete historical record",
+    },
+    "median": {
+        "sd": {"alpha": 0.25, "label": "Standard Deviation", "color": "#90A4AE"},
+        "range": {"alpha": 0.10, "label": "Historical Range Bound", "color": "#CFD8DC"},
+        "median": {"label": "Historical Median", "color": "#455A64", "linewidth": 1.2},
+        "covid_lw": 1.3, "covid_alpha": 0.85, "prev_lw": (1.2, 1.5), "current_lw": 2.5,
+        "legend_x": 1.25,
+        "suptitle": "Deaths per week in the Netherlands (Full Dataset)",
+        "title": "{sex}, {age}, complete spread distribution analysis",
+    },
+}
+
+BLOG = {
+    "name": "Modern Blog Theme",
+    "file_suffix": "_blog",
+    "dpi": 300,
+    "bg_canvas": "#F7FAFC",
+    "bg_face": "#FFFFFF",
+    "grid_color": "#E2E8F0",
+    "text_color": "#4A5568",
+    "spine_color": "#CBD5E0",
+    "spine_width": 1.0,
+    "tick_weight": "bold",
+    "title_color": "#1A202C",
+    "title_size": 16,
+    "title_y": 1.05,
+    "subtitle_color": "#718096",
+    "history_color": "#CBD5E0",
+    "covid_colors": {2020: "#0EA5E9", 2021: "#10B981", 2022: "#6366F1"},  # vivid blog palette
+    "covid_labels": {
+        2020: "2020 Pandemic Outbreak",
+        2021: "2021 Delta Wave",
+        2022: "2022 Omicron Structural Shift",
+    },
+    "facet_covid_labels": {2022: "2022 Omicron Shift"},
+    "c_prev2": "#718096",
+    "c_prev1": "#4A5568",
+    "c_current": "#FF3366",  # neon coral pink
+    "prev_label": "{year} Trend",
+    "current_label": "Current Tracker ({year})",
+    "legend_edge": "#E2E8F0",
+    "legend_text": {"color": "#2D3748", "fontsize": 9.5},
+    "overlay": {
+        "history": {"linewidth": 0.5, "alpha": 0.5},
+        "history_legend": {"alpha": 0.8, "label": "Historical Baseline ({first}-{last})"},
+        "covid_lw": 1.6, "covid_alpha": None, "prev_lw": (1.5, 1.8), "current_lw": 3.5,
+        "legend_x": 1.32,
+        "suptitle": "Tracking Mortality Trends in the Netherlands",
+        "title": "Demographic Filters: {sex} | {age}",
+    },
+    "median": {
+        "sd": {"alpha": 0.35, "label": "Standard Deviation Bounds", "color": "#CBD5E0"},
+        "range": {"alpha": 0.15, "label": "Historical Minimum / Maximum", "color": "#E2E8F0"},
+        "median": {"label": "Historical Median Trend", "color": "#2D3748", "linewidth": 1.5},
+        "covid_lw": 1.2, "covid_alpha": 0.7, "prev_lw": (1.2, 1.5), "current_lw": 3.0,
+        "legend_x": 1.35,
+        "suptitle": "Historical Mortality Spread Context",
+        "title": "Demographic Filters: {sex} | {age}",
+    },
+}
+
 
 # ==========================================
 # 1. DATA ACQUISITION & TRANSITIONAL CLEANING
 # ==========================================
-CBS_V4_BASE = "https://datasets.cbs.nl/odata/v1/CBS"
-TABLE_ID = "70895ned"
-
-
-def _get_json_with_retry(url, retries=5, base_delay=15, timeout=60):
+def _get_json_with_retry(session, url, retries=5, base_delay=15, timeout=60):
     """GET a URL as JSON, retrying with backoff on transient failures."""
     last_err = None
     for attempt in range(1, retries + 1):
         try:
-            r = requests.get(url, timeout=timeout)
+            r = session.get(url, timeout=timeout)
             r.raise_for_status()
             return r.json()
         except Exception as e:
             last_err = e
-            wait = base_delay * attempt
-            print(f"  Attempt {attempt}/{retries} failed for {url} ({e!r}); retrying in {wait}s...")
             if attempt < retries:
+                wait = base_delay * attempt
+                print(f"  Attempt {attempt}/{retries} failed for {url} ({e!r}); retrying in {wait}s...")
                 time.sleep(wait)
     raise RuntimeError(f"Failed to fetch {url} after {retries} attempts. Last error: {last_err}")
 
 
-def get_odata_v4_collection(table_id, collection, retries=5, base_delay=15):
+def get_odata_v4_collection(session, table_id, collection):
     """Fetch a full OData v4 collection (following @odata.nextLink pagination) as a DataFrame."""
     url = f"{CBS_V4_BASE}/{table_id}/{collection}"
     rows = []
     while url:
-        payload = _get_json_with_retry(url, retries=retries, base_delay=base_delay)
+        payload = _get_json_with_retry(session, url)
         rows.extend(payload.get("value", []))
         url = payload.get("@odata.nextLink")
     return pd.DataFrame(rows)
 
 
-def fetch_cbs_table_v4(table_id, retries=5, base_delay=15):
+def fetch_cbs_table_v4(table_id):
     """
-    Fetches table_id from CBS's current OData v4 API and reshapes the long-format
-    Observations back into the same wide layout the rest of this script expects:
-    one row per Perioden x Geslacht x LeeftijdOp31December, with the death count
-    in 'Overledenen_1'. Keeps all downstream logic (week-transition handling,
-    pivoting, etc.) completely unchanged.
+    Fetch table_id from the CBS OData v4 API and reshape the long-format
+    Observations into one row per Perioden x Geslacht x LeeftijdOp31December
+    with the death count in 'Overledenen_1' and human-readable labels.
     """
     print(f"Fetching data from CBS OData v4 ({table_id})...")
-
-    obs = get_odata_v4_collection(table_id, "Observations", retries, base_delay)
-
-    print("  Fetching dimension code tables...")
-    measure_codes = get_odata_v4_collection(table_id, "MeasureCodes", retries, base_delay)
-    geslacht_codes = get_odata_v4_collection(table_id, "GeslachtCodes", retries, base_delay)
-    leeftijd_codes = get_odata_v4_collection(table_id, "LeeftijdOp31DecemberCodes", retries, base_delay)
-    perioden_codes = get_odata_v4_collection(table_id, "PeriodenCodes", retries, base_delay)
+    with requests.Session() as session:  # one connection reused for all requests
+        obs = get_odata_v4_collection(session, table_id, "Observations")
+        print("  Fetching dimension code tables...")
+        measure_codes = get_odata_v4_collection(session, table_id, "MeasureCodes")
+        titles = {
+            dim: get_odata_v4_collection(session, table_id, f"{dim}Codes")
+            .set_index("Identifier")["Title"]
+            for dim in ("Geslacht", "LeeftijdOp31December", "Perioden")
+        }
 
     # This table has a single "deaths" measure; find it by title rather than
     # hardcoding its v4 identifier (identifiers changed between v3 and v4).
     death_measure = measure_codes[measure_codes["Title"].str.contains("Overledenen", case=False, na=False)]
     if death_measure.empty:
         raise RuntimeError(f"Could not find an 'Overledenen' measure in MeasureCodes for table {table_id}")
-    measure_id = death_measure.iloc[0]["Identifier"]
+    obs = obs[obs["Measure"] == death_measure.iloc[0]["Identifier"]]
 
-    obs = obs[obs["Measure"] == measure_id].copy()
+    # Map v4 dimension codes back to their labels.
+    data = pd.DataFrame({dim: obs[dim].map(mapping) for dim, mapping in titles.items()})
+    data["Overledenen_1"] = pd.to_numeric(obs["Value"], errors="coerce")
 
-    # Map v4 dimension codes back to the human-readable labels v3/cbsodata used.
-    geslacht_map = geslacht_codes.set_index("Identifier")["Title"].to_dict()
-    leeftijd_map = leeftijd_codes.set_index("Identifier")["Title"].to_dict()
-    perioden_map = perioden_codes.set_index("Identifier")["Title"].to_dict()
-
-    obs["Geslacht"] = obs["Geslacht"].map(geslacht_map)
-    obs["LeeftijdOp31December"] = obs["LeeftijdOp31December"].map(leeftijd_map)
-    obs["Perioden"] = obs["Perioden"].map(perioden_map)
-    obs["Overledenen_1"] = pd.to_numeric(obs["Value"], errors="coerce")
-
-    missing = obs[obs[["Geslacht", "LeeftijdOp31December", "Perioden"]].isna().any(axis=1)]
-    if not missing.empty:
-        print(f"  Warning: {len(missing)} observation(s) had unmapped codes and were dropped.")
-        obs = obs.dropna(subset=["Geslacht", "LeeftijdOp31December", "Perioden"])
-
-    return obs[["Perioden", "Geslacht", "LeeftijdOp31December", "Overledenen_1"]].reset_index(drop=True)
+    unmapped = data[list(titles)].isna().any(axis=1)
+    if unmapped.any():
+        print(f"  Warning: {unmapped.sum()} observation(s) had unmapped codes and were dropped.")
+        data = data[~unmapped]
+    return data.reset_index(drop=True)
 
 
-data = fetch_cbs_table_v4(TABLE_ID)
-data.dropna(subset=["Overledenen_1"], inplace=True)
+def load_deaths():
+    """Fetch the CBS table and return tidy weekly deaths (gender, age, year, week, deaths)."""
+    data = fetch_cbs_table_v4(TABLE_ID)
+    data = data.dropna(subset=["Overledenen_1"])
 
-df_clean = data[data.Perioden.str.contains('week')].copy()
-df_clean = df_clean[~df_clean.Perioden.str.contains('1995 week 0')].reset_index(drop=True)
-df_clean = df_clean.drop(columns=['ID'], errors='ignore')
+    df = data[data.Perioden.str.contains("week")]
+    df = df[~df.Perioden.str.contains("1995 week 0")].reset_index(drop=True)
 
-# --- PRESERVED: YOUR ORIGINAL TRANSITIONAL WEEK LOGIC ---
-df_clean['to_first_week'] = df_clean.Perioden.str.contains('dag') & df_clean.Perioden.str.contains('week 1')
-df_clean['to_last_week'] = df_clean.Perioden.str.contains('dag') & df_clean.Perioden.shift(-1).str.contains('week 0')
-df_clean['partial_week'] = df_clean.Perioden.str.contains('dag')
+    # Transitional weeks: a year starts/ends with a partial week ("... (3 dagen)").
+    # The partial "week 0" is merged into the neighbouring partial week 1 or
+    # partial last week of the previous year; week 0 itself is then dropped.
+    period = df.Perioden
+    counts = df.Overledenen_1
+    partial = period.str.contains("dag")
+    to_first_week = partial & period.str.contains("week 1")
+    to_last_week = partial & period.shift(-1).str.contains("week 0").fillna(False).astype(bool)
 
-df_clean.loc[df_clean['to_first_week'] == True, 'deaths'] = df_clean['Overledenen_1'].shift(+1) + df_clean['Overledenen_1']
-df_clean.loc[df_clean['to_last_week'] == True, 'deaths'] = df_clean['Overledenen_1'].shift(-1) + df_clean['Overledenen_1']
-df_clean.loc[df_clean['partial_week'] == False, 'deaths'] = df_clean['Overledenen_1']
-df_clean = df_clean.dropna(subset=["deaths"]).reset_index(drop=True)
-# --------------------------------------------------------
+    deaths = counts.where(~partial)
+    deaths = deaths.mask(to_first_week, counts.shift(1) + counts)
+    deaths = deaths.mask(to_last_week, counts.shift(-1) + counts)
 
-# Clean up date structures via regex capture groups
-parsed_dates = df_clean['Perioden'].str.extract(r'(?P<year_str>\d{4})\s+week\s+(?P<week_str>\d+)')
-df_clean['year'] = pd.to_numeric(parsed_dates['year_str'])
-df_clean['week'] = pd.to_numeric(parsed_dates['week_str'])
-df_clean['deaths'] = pd.to_numeric(df_clean['deaths']).astype(int)
+    parsed = period.str.extract(r"(\d{4})\s+week\s+(\d+)").astype(int)
+    tidy = pd.DataFrame({
+        "gender": df.Geslacht,
+        "age": df.LeeftijdOp31December,
+        "year": parsed[0],
+        "week": parsed[1],
+        "deaths": deaths,
+    }).dropna(subset=["deaths"])
+    tidy["deaths"] = tidy["deaths"].astype(int)
+    return tidy
 
-df_clean = df_clean.drop(columns=['Overledenen_1', 'to_first_week', 'to_last_week', 'partial_week'])
-df_clean = df_clean.rename(columns={"LeeftijdOp31December": "age", "Geslacht": "gender"})
-df_clean = df_clean[['Perioden', 'gender', 'age', 'year', 'week', 'deaths']]
 
-current_year = int(df_clean['year'].max())
-start_year = int(df_clean['year'].min())
-print(f"Analyzing complete historical range: {start_year} to {current_year}")
-
-months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
-
-# Pivot targeted demographic categories to matrix columns
-leeftijd = 'Totaal leeftijd'
-sex = 'Totaal mannen en vrouwen'
-df_circle = df_clean[(df_clean.age == leeftijd) & (df_clean.gender == sex)]
-
-# Find the absolute latest valid data week for the current year BEFORE pivoting
-latest_active_week = df_circle[df_circle['year'] == current_year]['week'].max()
-df_circle = df_circle.pivot(index='week', columns='year', values='deaths')
+def week_year_pivot(df, gender, age):
+    """Matrix of deaths with weeks as rows and years as columns for one demographic group."""
+    sub = df[(df.gender == gender) & (df.age == age)]
+    return sub.pivot(index="week", columns="year", values="deaths")
 
 
 # ==========================================
 # 2. POLAR ROUTINES & MATHEMATICAL BRIDGING
 # ==========================================
-def data_for_year(y):
+def year_curve(pivot, year, current_year):
     """
-    Extracts data frames strictly mapped out over a true 52-week calendar distribution.
-    Prevents artificial drops or forward predicting timeline leakage.
+    (theta, values) for one year mapped onto a 52-week circle.
+
+    Past years are closed with week 1 of the following year (or their own first
+    week), the current year stops at its latest reported week.
     """
-    if y == current_year:
-        weeks = np.arange(1, latest_active_week + 1)
-        values = np.array([df_circle.loc[w, y] for w in weeks])
-        theta = ((weeks - 1) / 52) * 2 * np.pi
-        return theta, values
+    column = pivot[year]
 
-    weeks = np.arange(1, 53)
-    values = np.array([df_circle.loc[w, y] for w in weeks])
+    def filled(weeks):
+        return column.reindex(weeks).interpolate(method="linear").bfill().ffill().to_numpy()
 
-    if pd.Series(values).isna().any():
-        values = pd.Series(values).interpolate(method='linear').to_numpy()
+    if year == current_year:
+        last_week = int(column.last_valid_index())
+        return np.arange(last_week) / 52 * 2 * np.pi, filled(range(1, last_week + 1))
 
-    next_year = y + 1
-    if next_year in df_circle.columns and 1 in df_circle.index:
-        next_val = df_circle.loc[1, next_year]
-        if not pd.isna(next_val):
-            theta = np.linspace(0, 2 * np.pi, 53)
-            values = np.append(values, next_val)
-            return theta, values
-
-    theta = np.linspace(0, 2 * np.pi, 53)
-    values = np.append(values, values[0])
-    return theta, values
+    values = filled(range(1, 53))
+    closing = np.nan
+    if year + 1 in pivot.columns and 1 in pivot.index:
+        closing = pivot.at[1, year + 1]
+    if pd.isna(closing):
+        closing = values[0]
+    return THETA_FULL, np.append(values, closing)
 
 
-def setup_polar_plot(figsize=(10, 8), blog_mode=False):
-    fig = plt.figure(figsize=figsize)
-    ax = fig.add_subplot(111, projection='polar')
-    ax.set_theta_zero_location('N')
+def all_curves(pivot, current_year):
+    return {int(y): year_curve(pivot, y, current_year) for y in pivot.columns}
+
+
+def style_polar_ax(ax, theme, *, tick_size=10.0, grid_width=0.6, x_pad=None, r_size=None):
+    ax.set_facecolor(theme["bg_face"])
+    ax.set_theta_zero_location("N")
     ax.set_theta_direction(-1)
-
-    # Modern Blog Light Theme vs Standard Academic Viewport
-    bg_canvas = '#F7FAFC' if blog_mode else 'white'
-    bg_face = '#FFFFFF' if blog_mode else 'white'
-    grid_color = '#E2E8F0' if blog_mode else '#E5E5E5'
-    text_color = '#4A5568' if blog_mode else '#333333'
-    spine_color = '#CBD5E0' if blog_mode else '#888888'
-
-    fig.patch.set_facecolor(bg_canvas)
-    ax.set_facecolor(bg_face)
-
-    ax.set_xticks(np.arange(0, 2 * np.pi, np.pi / 6))
-    ax.set_xticklabels(months, fontsize=10, color=text_color, fontweight='bold' if blog_mode else 'normal')
-    ax.tick_params(axis='x', pad=12)
-
-    ax.grid(True, color=grid_color, linestyle='--', linewidth=0.6)
+    ax.set_xticks(MONTH_TICKS)
+    ax.set_xticklabels(MONTHS, fontsize=tick_size, color=theme["text_color"],
+                       fontweight=theme["tick_weight"])
+    if x_pad is not None:
+        ax.tick_params(axis="x", pad=x_pad)
+    ax.grid(True, color=theme["grid_color"], linestyle="--", linewidth=grid_width)
     ax.set_rlabel_position(180)
-    ax.tick_params(axis='y', colors=text_color)
+    ax.tick_params(axis="y", colors=theme["text_color"], labelsize=r_size)
+    ax.spines["polar"].set_color(theme["spine_color"])
+    ax.spines["polar"].set_linewidth(theme["spine_width"])
 
-    ax.spines['polar'].set_color(spine_color)
-    ax.spines['polar'].set_linewidth(1.0 if blog_mode else 0.8)
+
+def setup_polar_plot(theme, figsize=(10, 8)):
+    fig = plt.figure(figsize=figsize)
+    fig.patch.set_facecolor(theme["bg_canvas"])
+    ax = fig.add_subplot(111, projection="polar")
+    style_polar_ax(ax, theme, x_pad=12)
     return fig, ax
 
 
-def add_terminal_marker(ax, theta, values, blog_mode=False):
-    """Places a precise data node point and explicit text overlay label at the leading timeline edge."""
-    if len(theta) == 0 or len(values) == 0:
+def add_terminal_marker(ax, theta, values, theme):
+    """Dot plus text label at the latest reported week."""
+    if len(theta) == 0:
         return
-    t_last = theta[-1]
-    v_last = values[-1]
+    t_last, v_last = theta[-1], values[-1]
+    color = theme["c_current"]
 
-    brand_color = '#FF3366' if blog_mode else '#D32F2F'
-    bg_box = '#FFFFFF'
+    ax.plot(t_last, v_last, marker="o", markersize=8, color=color,
+            markeredgecolor="white", markeredgewidth=2, zorder=15)
 
-    ax.plot(t_last, v_last, marker='o', markersize=8, color=brand_color, markeredgecolor='white', markeredgewidth=2, zorder=15)
-
-    text_padding = 160
-    ha = 'left' if 0 <= t_last < np.pi else 'right'
-
+    left = 0 <= t_last < np.pi
     ax.annotate(
         f"Week {len(values)}\n{int(v_last):,} deaths",
         xy=(t_last, v_last),
-        xytext=(text_padding if ha == 'left' else -text_padding, 0),
-        textcoords='offset points',
-        ha=ha,
-        va='center',
+        xytext=(160 if left else -160, 0),
+        textcoords="offset points",
+        ha="left" if left else "right",
+        va="center",
         fontsize=9,
-        fontweight='bold',
-        color=brand_color,
-        bbox=dict(boxstyle='round,pad=0.4', facecolor=bg_box, edgecolor=brand_color, alpha=0.95, linewidth=1.2),
-        zorder=16
+        fontweight="bold",
+        color=color,
+        bbox=dict(boxstyle="round,pad=0.4", facecolor="#FFFFFF", edgecolor=color,
+                  alpha=0.95, linewidth=1.2),
+        zorder=16,
     )
 
 
-# pre-calculate shared arrays to streamline runtime execution
-t_2020, v_2020 = data_for_year(2020)
-t_2021, v_2021 = data_for_year(2021)
-t_2022, v_2022 = data_for_year(2022)
-t_2024, v_2024 = data_for_year(current_year - 2)
-t_2025, v_2025 = data_for_year(current_year - 1)
-t_curr, v_curr = data_for_year(current_year)
+def plot_history(ax, curves, highlighted, color, **line_kw):
+    """Thin background lines for every year that is not highlighted."""
+    for year, (theta, values) in curves.items():
+        if year not in highlighted:
+            ax.plot(theta, values, color=color, **line_kw)
+
+
+def plot_highlights(ax, curves, theme, current_year, *, covid_lw, covid_alpha, prev_lw,
+                    current_lw, labels=True):
+    """COVID years, the two previous years and the current year. Returns the current curve."""
+
+    def label(text):
+        return text if labels else None
+
+    alphas = covid_alpha if isinstance(covid_alpha, tuple) else (covid_alpha,) * len(COVID_YEARS)
+    for year, alpha in zip(COVID_YEARS, alphas):
+        if year in curves:
+            ax.plot(*curves[year], label=label(theme["covid_labels"][year]),
+                    color=theme["covid_colors"][year], linewidth=covid_lw, alpha=alpha)
+
+    for offset, style, color, lw in ((2, "dotted", theme["c_prev2"], prev_lw[0]),
+                                     (1, "solid", theme["c_prev1"], prev_lw[1])):
+        year = current_year - offset
+        if year in curves:
+            ax.plot(*curves[year], label=label(theme["prev_label"].format(year=year)),
+                    linestyle=style, color=color, linewidth=lw)
+
+    current = curves.get(current_year)
+    if current is not None:
+        ax.plot(*current, label=label(theme["current_label"].format(year=current_year)),
+                color=theme["c_current"], linewidth=current_lw, zorder=10)
+    return current
+
+
+def finish_single_figure(fig, ax, theme, spec, basename):
+    """Legend, titles and PNG/SVG export shared by the single-panel charts."""
+    legend = ax.legend(loc="lower right", bbox_to_anchor=(spec["legend_x"], -0.05), frameon=True,
+                       facecolor=theme["bg_face"], edgecolor=theme["legend_edge"])
+    if theme["legend_text"]:
+        for text in legend.get_texts():
+            text.set(**theme["legend_text"])
+
+    fig.suptitle(spec["suptitle"], fontsize=theme["title_size"], fontweight="bold",
+                 color=theme["title_color"], y=theme["title_y"])
+    ax.set_title(spec["title"].format(sex=TOTAL_SEX, age=TOTAL_AGE), fontsize=10,
+                 color=theme["subtitle_color"], y=1.1)
+    save_figure(fig, f"{basename}{theme['file_suffix']}", theme)
+
+
+def save_figure(fig, basename, theme, dpi=None):
+    kw = dict(dpi=dpi or theme["dpi"], bbox_inches="tight", facecolor=theme["bg_canvas"])
+    fig.savefig(f"{basename}.png", **kw)
+    fig.savefig(f"{basename}.svg", metadata={"Date": None}, **kw)  # no timestamp: stable diffs
+    plt.close(fig)
 
 
 # ==========================================
-# 3. ORIGINAL SCIENTIFIC OVERLAY PLOTS
+# 3. OVERLAY PLOT (all years)
 # ==========================================
-print("Generating clean scientific overlay charts...")
-fig, ax = setup_polar_plot(blog_mode=False)
+def plot_overlay(theme, curves, highlighted, start_year, current_year):
+    spec = theme["overlay"]
+    fig, ax = setup_polar_plot(theme)
 
-exclude_years = [2020, 2021, 2022, current_year - 2, current_year - 1, current_year]
-for y in range(start_year, current_year):
-    if y in exclude_years:
-        continue
-    t, v = data_for_year(y)
-    ax.plot(t, v, linewidth=0.4, color='#CFD8DC', alpha=0.4)
+    plot_history(ax, curves, highlighted, theme["history_color"], **spec["history"])
+    ax.plot([], [], color=theme["history_color"], alpha=spec["history_legend"]["alpha"], linewidth=1,
+            label=spec["history_legend"]["label"].format(first=start_year, last=current_year - 3))
 
-ax.plot([], [], color='#CFD8DC', alpha=0.7, linewidth=1, label=f"History ({start_year}-{current_year-3})")
-
-# COVID highlights (Academic deep jewel tones)
-ax.plot(t_2020, v_2020, label="2020 (COVID)", color='#00838F', linewidth=1.5)
-ax.plot(t_2021, v_2021, label="2021 (COVID)", color='#00695C', linewidth=1.5)
-ax.plot(t_2022, v_2022, label="2022 (COVID)", color='#2E7D32', linewidth=1.5)
-
-# Recent Tracking Context Lines
-ax.plot(t_2024, v_2024, label=f"{current_year - 2}", linestyle='dotted', color='#78909C', linewidth=1.5)
-ax.plot(t_2025, v_2025, label=f"{current_year - 1}", linestyle='solid', color='#37474F', linewidth=1.8)
-ax.plot(t_curr, v_curr, label=f"{current_year}", color='#D32F2F', linewidth=3.2, zorder=10)
-
-add_terminal_marker(ax, t_curr, v_curr, blog_mode=False)
-
-ax.legend(loc='lower right', bbox_to_anchor=(1.25, -0.05), frameon=True, facecolor='white', edgecolor='#E0E0E0')
-fig.suptitle('Deaths in the Netherlands per week', fontsize=14, fontweight='bold', color='#212121', y=1.04)
-ax.set_title(f"{sex}, {leeftijd}\nHighlighting Pandemic anomalies across complete historical record", fontsize=10, color='#616161', y=1.1)
-
-for suffix in ['png', 'svg']:
-    plt.savefig(f'sterfte_perjaar.{suffix}', dpi=200, bbox_inches='tight', facecolor='white')
-plt.close()
+    current = plot_highlights(ax, curves, theme, current_year, covid_lw=spec["covid_lw"],
+                              covid_alpha=spec["covid_alpha"], prev_lw=spec["prev_lw"],
+                              current_lw=spec["current_lw"])
+    add_terminal_marker(ax, *current, theme)
+    finish_single_figure(fig, ax, theme, spec, "sterfte_perjaar")
 
 
 # ==========================================
 # 4. HISTORICAL MEDIAN & SPREAD PLOT
 # ==========================================
-print("Generating statistical spread thresholds...")
-years_historical = df_circle.drop(columns=[current_year], errors='ignore').reindex(range(1, 53))
-years_historical = years_historical.interpolate(axis=0)
+def historical_stats(pivot, current_year):
+    """Per-week statistics over all completed years, closed into a loop (53 points)."""
+    hist = pivot.drop(columns=[current_year], errors="ignore").reindex(range(1, 53))
+    hist = hist.interpolate(axis=0)
 
-def close_loop(series):
-    arr = series.to_numpy()
-    return np.append(arr, arr[0])
+    def closed(series):
+        arr = series.to_numpy()
+        return np.append(arr, arr[0])
 
-theta_stat = np.linspace(0, 2 * np.pi, 53)
-mean_val = close_loop(years_historical.mean(axis=1))
-median_val = close_loop(years_historical.median(axis=1))
-min_val = close_loop(years_historical.min(axis=1))
-max_val = close_loop(years_historical.max(axis=1))
-sd_val = close_loop(years_historical.std(axis=1))
+    return {name: closed(getattr(hist, name)(axis=1))
+            for name in ("mean", "median", "min", "max", "std")}
 
-fig, ax = setup_polar_plot(blog_mode=False)
-ax.fill_between(theta_stat, mean_val + sd_val, mean_val - sd_val, alpha=0.25, label="Standard Deviation", color='#90A4AE')
-ax.fill_between(theta_stat, min_val, max_val, alpha=0.10, label="Historical Range Bound", color='#CFD8DC')
-ax.plot(theta_stat, median_val, label="Historical Median", linestyle='dashed', color='#455A64', linewidth=1.2)
 
-ax.plot(t_2020, v_2020, label="2020 (COVID)", color='#00838F', linewidth=1.3, alpha=0.85)
-ax.plot(t_2021, v_2021, label="2021 (COVID)", color='#00695C', linewidth=1.3, alpha=0.85)
-ax.plot(t_2022, v_2022, label="2022 (COVID)", color='#2E7D32', linewidth=1.3, alpha=0.85)
-ax.plot(t_2024, v_2024, label=f"{current_year - 2}", linestyle='dotted', color='#78909C', linewidth=1.2)
-ax.plot(t_2025, v_2025, label=f"{current_year - 1}", linestyle='solid', color='#37474F', linewidth=1.5)
-ax.plot(t_curr, v_curr, label=f"{current_year}", color='#D32F2F', linewidth=2.5, zorder=10)
+def plot_median(theme, curves, stats, current_year):
+    spec = theme["median"]
+    fig, ax = setup_polar_plot(theme)
 
-add_terminal_marker(ax, t_curr, v_curr, blog_mode=False)
+    ax.fill_between(THETA_FULL, stats["mean"] + stats["std"], stats["mean"] - stats["std"],
+                    **spec["sd"])
+    ax.fill_between(THETA_FULL, stats["min"], stats["max"], **spec["range"])
+    ax.plot(THETA_FULL, stats["median"], linestyle="dashed", **spec["median"])
 
-ax.legend(loc='lower right', bbox_to_anchor=(1.25, -0.05), frameon=True, facecolor='white', edgecolor='#E0E0E0')
-fig.suptitle(f"Deaths per week in the Netherlands (Full Dataset)", fontsize=14, fontweight='bold', color='#212121', y=1.04)
-ax.set_title(f"{sex}, {leeftijd}, complete spread distribution analysis", fontsize=10, color='#616161', y=1.1)
-
-for suffix in ['png', 'svg']:
-    plt.savefig(f'sterfte_median.{suffix}', dpi=200, bbox_inches='tight', facecolor='white')
-plt.close()
+    current = plot_highlights(ax, curves, theme, current_year, covid_lw=spec["covid_lw"],
+                              covid_alpha=spec["covid_alpha"], prev_lw=spec["prev_lw"],
+                              current_lw=spec["current_lw"])
+    add_terminal_marker(ax, *current, theme)
+    finish_single_figure(fig, ax, theme, spec, "sterfte_median")
 
 
 # ==========================================
-# 5. BLOG VERSIONS (MODERN LIGHT EDITORIAL)
+# 5. ANIMATED TRACK (blog theme)
 # ==========================================
-print("Generating light-themed blog assets...")
+def render_animation(theme, curves, current_year, *, n_years=26, frame_ms=200, pause_ms=3000,
+                     dpi=150, filename="sterfte_anim_blog.gif"):
+    """One frame per year; the final frame is held for `pause_ms` extra."""
+    fig, ax = setup_polar_plot(theme)
+    center_label = ax.text(0, 0, "", ha="center", va="center", fontsize=16, fontweight="bold",
+                           color=theme["title_color"])
+    covid_alpha = {2020: 0.8, 2021: 0.8, 2022: 0.7}
 
-# --- BLOG GRAPHIC 1: OVERLAY HISTORIC TRENDS ---
-fig, ax = setup_polar_plot(blog_mode=True)
-
-# 1. Base Layer History (Clean muted slate grays)
-for y in range(start_year, current_year):
-    if y in exclude_years:
-        continue
-    t, v = data_for_year(y)
-    ax.plot(t, v, linewidth=0.5, color='#CBD5E0', alpha=0.5)
-ax.plot([], [], color='#CBD5E0', alpha=0.8, linewidth=1, label=f"Historical Baseline ({start_year}-{current_year-3})")
-
-# 2. Pandemic Waves (Hip, vivid editorial jewel tones)
-ax.plot(t_2020, v_2020, label="2020 Pandemic Outbreak", color='#0EA5E9', linewidth=1.6) # Vibrant Light Blue
-ax.plot(t_2021, v_2021, label="2021 Delta Wave", color='#10B981', linewidth=1.6)       # Vibrant Emerald Green
-ax.plot(t_2022, v_2022, label="2022 Omicron Structural Shift", color='#6366F1', linewidth=1.6) # Indigo Purple
-
-# 3. Recent Comparisons
-ax.plot(t_2024, v_2024, label=f"{current_year - 2} Trend", linestyle='dotted', color='#718096', linewidth=1.5)
-ax.plot(t_2025, v_2025, label=f"{current_year - 1} Trend", linestyle='solid', color='#4A5568', linewidth=1.8)
-
-# 4. Highlight Active Tracking Line (Ultra Neon Hot Coral Pink)
-ax.plot(t_curr, v_curr, label=f"Current Tracker ({current_year})", color='#FF3366', linewidth=3.5, zorder=10)
-add_terminal_marker(ax, t_curr, v_curr, blog_mode=True)
-
-legend = ax.legend(loc='lower right', bbox_to_anchor=(1.32, -0.05), frameon=True, facecolor='#FFFFFF', edgecolor='#E2E8F0')
-for text in legend.get_texts():
-    text.set_color('#2D3748')
-    text.set_fontsize(9.5)
-
-fig.suptitle('Tracking Mortality Trends in the Netherlands', fontsize=16, fontweight='bold', color='#1A202C', y=1.05)
-ax.set_title(f"Demographic Filters: {sex} | {leeftijd}", fontsize=10, color='#718096', y=1.1)
-
-for suffix in ['png', 'svg']:
-    plt.savefig(f'sterfte_perjaar_blog.{suffix}', dpi=300, bbox_inches='tight', facecolor='#F7FAFC')
-plt.close()
-
-
-# --- BLOG GRAPHIC 2: MEDIAN AND SHADED ENVELOPE ---
-print("Generating light-themed statistical median blog assets...")
-fig, ax = setup_polar_plot(blog_mode=True)
-
-# Clean, soft pastel editorial band distributions
-ax.fill_between(theta_stat, mean_val + sd_val, mean_val - sd_val, alpha=0.35, label="Standard Deviation Bounds", color='#CBD5E0')
-ax.fill_between(theta_stat, min_val, max_val, alpha=0.15, label="Historical Minimum / Maximum", color='#E2E8F0')
-ax.plot(theta_stat, median_val, label="Historical Median Trend", linestyle='dashed', color='#2D3748', linewidth=1.5)
-
-# Re-overlay key timeline indicators
-ax.plot(t_2020, v_2020, label="2020 Pandemic Outbreak", color='#0EA5E9', linewidth=1.2, alpha=0.7)
-ax.plot(t_2021, v_2021, label="2021 Delta Wave", color='#10B981', linewidth=1.2, alpha=0.7)
-ax.plot(t_2022, v_2022, label="2022 Omicron Structural Shift", color='#6366F1', linewidth=1.2, alpha=0.7)
-ax.plot(t_2024, v_2024, label=f"{current_year - 2} Trend", linestyle='dotted', color='#718096', linewidth=1.2)
-ax.plot(t_2025, v_2025, label=f"{current_year - 1} Trend", linestyle='solid', color='#4A5568', linewidth=1.5)
-ax.plot(t_curr, v_curr, label=f"Current Tracker ({current_year})", color='#FF3366', linewidth=3.0, zorder=10)
-add_terminal_marker(ax, t_curr, v_curr, blog_mode=True)
-
-legend = ax.legend(loc='lower right', bbox_to_anchor=(1.35, -0.05), frameon=True, facecolor='#FFFFFF', edgecolor='#E2E8F0')
-for text in legend.get_texts():
-    text.set_color('#2D3748')
-    text.set_fontsize(9.5)
-
-fig.suptitle('Historical Mortality Spread Context', fontsize=16, fontweight='bold', color='#1A202C', y=1.05)
-ax.set_title(f"Demographic Filters: {sex} | {leeftijd}", fontsize=10, color='#718096', y=1.1)
-
-for suffix in ['png', 'svg']:
-    plt.savefig(f'sterfte_median_blog.{suffix}', dpi=300, bbox_inches='tight', facecolor='#F7FAFC')
-plt.close()
-
-
-# ==========================================
-# 6. ANIMATED TRACK GENERATOR (LIGHT BLOG-THEME)
-# ==========================================
-print("Compiling light-themed polar trend animations with a terminal pause...")
-fig, ax = setup_polar_plot(blog_mode=True)
-
-years_list = list(range(current_year - 25, current_year + 1))
-total_years = len(years_list)
-
-# --- PAUSE CONFIGURATION ---
-pause_seconds = 3.0    # How many seconds you want the GIF to freeze at the final frame
-frame_interval = 200   # ms per frame (matching your interval)
-fps = 1000 / frame_interval # Frames per second (5 fps)
-extra_frames = int(pause_seconds * fps) # Calculate required duplicate padding frames
-
-# Total frames becomes the historical data series + the freeze duration frames
-total_frames = total_years + extra_frames
-
-line_hist, = ax.plot([], [], color='#CBD5E0', alpha=0.4, linewidth=0.5)
-line_curr, = ax.plot([], [], color='#FF3366', linewidth=3.5, zorder=10)
-center_label = ax.text(0, 0, '', ha='center', va='center', fontsize=16, fontweight='bold', color='#1A202C')
-
-def init():
-    line_hist.set_data([], [])
-    line_curr.set_data([], [])
-    center_label.set_text('')
-    return line_hist, line_curr, center_label
-
-def update_frame(frame):
-    # CRITICAL: Clamp the frame index to the maximum data boundary.
-    # When 'frame' enters the padding window, it locks onto the final year index.
-    clamped_idx = min(frame, total_years - 1)
-    y = years_list[clamped_idx]
-
-    t, v = data_for_year(y)
-
-    if y == current_year:
-        line_curr.set_data(t, v)
-        # Explicitly plot the full terminal marker box during the freeze window
-        if frame == total_years - 1:
-            add_terminal_marker(ax, t, v, blog_mode=True)
-    else:
-        if y == 2020:
-            ax.plot(t, v, color='#0EA5E9', linewidth=1.4, alpha=0.8)
-        elif y == 2021:
-            ax.plot(t, v, color='#10B981', linewidth=1.4, alpha=0.8)
-        elif y == 2022:
-            ax.plot(t, v, color='#6366F1', linewidth=1.4, alpha=0.7)
+    frames = []
+    for year in range(current_year - n_years + 1, current_year + 1):
+        theta, values = curves[year]
+        if year == current_year:
+            ax.plot(theta, values, color=theme["c_current"], linewidth=3.5, zorder=10)
+            add_terminal_marker(ax, theta, values, theme)
+        elif year in COVID_YEARS:
+            ax.plot(theta, values, color=theme["covid_colors"][year], linewidth=1.4,
+                    alpha=covid_alpha[year])
         else:
-            ax.plot(t, v, color='#CBD5E0', alpha=0.4, linewidth=0.5)
+            ax.plot(theta, values, color=theme["history_color"], alpha=0.4, linewidth=0.5)
+        center_label.set_text(f"{year}")
 
-    center_label.set_text(f"{y}")
-    return line_hist, line_curr, center_label
+        buf = io.BytesIO()
+        fig.savefig(buf, format="rgba", dpi=dpi, facecolor=theme["bg_canvas"])
+        size = tuple(int(round(v * dpi)) for v in fig.get_size_inches())
+        frames.append(Image.frombuffer("RGBA", size, buf.getbuffer(), "raw", "RGBA", 0, 1)
+                      .convert("RGB"))
+    plt.close(fig)
 
-# Pass total_frames (which contains the calculated trailing padding) to the runner
-anim = FuncAnimation(fig, update_frame, init_func=init, frames=total_frames, interval=frame_interval, blit=True)
+    # Hold the last frame through its duration instead of rendering duplicate frames.
+    durations = [frame_ms] * (len(frames) - 1) + [frame_ms + pause_ms]
+    frames[0].save(filename, save_all=True, append_images=frames[1:], duration=durations, loop=0)
 
-# Save the updated animation file
-anim.save('sterfte_anim_blog.gif', writer=PillowWriter(fps=fps), dpi=150, savefig_kwargs={'facecolor': '#F7FAFC'})
-plt.close()
 
-print(f"Animation created successfully! Locked at the final frame for a {pause_seconds} second pause.")
+# ==========================================
+# 6. DEMOGRAPHIC FACET GRID (SEX x AGE)
+# ==========================================
+def plot_facets(theme, facet_curves, highlighted, start_year, current_year):
+    print(f"Generating demographic breakdown grids for: {theme['name']}...")
+    fig, axes = plt.subplots(nrows=len(FACET_SEXES), ncols=len(FACET_AGES), figsize=(16, 11),
+                             subplot_kw={"projection": "polar"})
+    fig.patch.set_facecolor(theme["bg_canvas"])
 
-# ==============================================================================
-# 5.3 DEMOGRAPHIC FACET GRIDS (SEX x AGE) — BOTH THEME STYLES
-# ==============================================================================
-target_ages = ['0 tot 65 jaar', '65 tot 80 jaar', '80 jaar of ouder']
-target_genders = ['Mannen', 'Vrouwen']
+    for row, gender in enumerate(FACET_SEXES):
+        for col, age in enumerate(FACET_AGES):
+            ax = axes[row, col]
+            curves = facet_curves[gender, age]
+            style_polar_ax(ax, theme, tick_size=8.5, grid_width=0.5, r_size=7.5)
 
-# Define explicit configuration maps for both styles
-theme_configs = [
-    {
-        "name": "Scientific Theme",
-        "file_suffix": "naar_Geslacht_leeftijd",
-        "bg_canvas": "white",
-        "bg_face": "white",
-        "grid_color": "#E5E5E5",
-        "text_color": "#333333",
-        "spine_color": "#888888",
-        "title_color": "#212121",
-        "history_color": "#CFD8DC",
-        "c_2020": "#00838F", # Jewel tones
-        "c_2021": "#00695C",
-        "c_2022": "#2E7D32",
-        "c_prev2": "#78909C",
-        "c_prev1": "#37474F",
-        "c_current": "#D32F2F" # Classic Crimson
-    },
-    {
-        "name": "Modern Blog Theme",
-        "file_suffix": "naar_Geslacht_leeftijd_blog",
-        "bg_canvas": "#F7FAFC",
-        "bg_face": "#FFFFFF",
-        "grid_color": "#E2E8F0",
-        "text_color": "#4A5568",
-        "spine_color": "#CBD5E0",
-        "title_color": "#1A202C",
-        "history_color": "#CBD5E0",
-        "c_2020": "#0EA5E9", # Vivid blog palette
-        "c_2021": "#10B981",
-        "c_2022": "#6366F1",
-        "c_prev2": "#718096",
-        "c_prev1": "#4A5568",
-        "c_current": "#FF3366" # Neon Pink Coral
-    }
-]
+            plot_history(ax, curves, highlighted, theme["history_color"], linewidth=0.4, alpha=0.4)
+            current = plot_highlights(ax, curves, theme, current_year, covid_lw=1.3,
+                                      covid_alpha=(0.85, 0.85, 0.8), prev_lw=(1.3, 1.5),
+                                      current_lw=2.5, labels=False)
+            if current is not None and len(current[0]):
+                ax.plot(current[0][-1], current[1][-1], marker="o", markersize=5,
+                        color=theme["c_current"], markeredgecolor=theme["bg_face"],
+                        markeredgewidth=1, zorder=15)
 
-for config in theme_configs:
-    print(f"Generating demographic breakdown grids for: {config['name']}...")
+            ax.set_title(f"{gender} | {age}", fontsize=11, fontweight="bold",
+                         color=theme["title_color"], pad=14)
 
-    # Initialize a 2 rows x 3 columns polar sub-grid mapping layout structure
-    fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(16, 11), subplot_kw={'projection': 'polar'})
-    fig.patch.set_facecolor(config["bg_canvas"])
-
-    for g_idx, gender_cat in enumerate(target_genders):
-        for a_idx, age_cat in enumerate(target_ages):
-            ax = axes[g_idx, a_idx]
-
-            # Apply theme styles to current axes coordinate space
-            ax.set_facecolor(config["bg_face"])
-            ax.set_theta_zero_location('N')
-            ax.set_theta_direction(-1)
-            ax.set_xticks(np.arange(0, 2 * np.pi, np.pi / 6))
-            ax.set_xticklabels(months, fontsize=8.5, color=config["text_color"], fontweight='bold' if "Blog" in config["name"] else 'normal')
-            ax.grid(True, color=config["grid_color"], linestyle='--', linewidth=0.5)
-            ax.spines['polar'].set_color(config["spine_color"])
-            ax.spines['polar'].set_linewidth(1.0 if "Blog" in config["name"] else 0.8)
-            ax.tick_params(axis='y', colors=config["text_color"], labelsize=7.5)
-            ax.set_rlabel_position(180)
-
-            # Filter targeted row slices specific to this demographic cell grid
-            df_sub = df_clean[(df_clean.age == age_cat) & (df_clean.gender == gender_cat)]
-            df_sub_circle = df_sub.pivot(index='week', columns='year', values='deaths')
-
-            # Encapsulated data-loop math functions reflecting the main loops
-            def get_sub_loop_data(y):
-                sub_active_week = df_sub[df_sub['year'] == current_year]['week'].max()
-                if y == current_year:
-                    wks = np.arange(1, sub_active_week + 1)
-                    vals = np.array([df_sub_circle.loc[w, y] if w in df_sub_circle.index else np.nan for w in wks])
-                    if pd.Series(vals).isna().any():
-                        vals = pd.Series(vals).interpolate(method='linear').bfill().ffill().to_numpy()
-                    th = ((wks - 1) / 52) * 2 * np.pi
-                    return th, vals
-
-                wks = np.arange(1, 53)
-                vals = np.array([df_sub_circle.loc[w, y] if w in df_sub_circle.index else np.nan for w in wks])
-                if pd.Series(vals).isna().any():
-                    vals = pd.Series(vals).interpolate(method='linear').bfill().ffill().to_numpy()
-
-                nxt_y = y + 1
-                if nxt_y in df_sub_circle.columns and 1 in df_sub_circle.index:
-                    nv = df_sub_circle.loc[1, nxt_y]
-                    if not pd.isna(nv):
-                        return np.linspace(0, 2 * np.pi, 53), np.append(vals, nv)
-                return np.linspace(0, 2 * np.pi, 53), np.append(vals, vals[0])
-
-            # 1. Base Layer: Historical Background Timelines
-            for y in range(start_year, current_year):
-                if y in exclude_years:
-                    continue
-                if y in df_sub_circle.columns:
-                    t, v = get_sub_loop_data(y)
-                    ax.plot(t, v, linewidth=0.4, color=config["history_color"], alpha=0.4)
-
-            # 2. Middle Layer: Pandemic Wave Overlays
-            if 2020 in df_sub_circle.columns:
-                t, v = get_sub_loop_data(2020)
-                ax.plot(t, v, color=config["c_2020"], linewidth=1.3, alpha=0.85)
-            if 2021 in df_sub_circle.columns:
-                t, v = get_sub_loop_data(2021)
-                ax.plot(t, v, color=config["c_2021"], linewidth=1.3, alpha=0.85)
-            if 2022 in df_sub_circle.columns:
-                t, v = get_sub_loop_data(2022)
-                ax.plot(t, v, color=config["c_2022"], linewidth=1.3, alpha=0.8)
-
-            # 3. Reference Context Trajectories
-            if (current_year - 2) in df_sub_circle.columns:
-                t, v = get_sub_loop_data(current_year - 2)
-                ax.plot(t, v, linestyle='dotted', color=config["c_prev2"], linewidth=1.3)
-            if (current_year - 1) in df_sub_circle.columns:
-                t, v = get_sub_loop_data(current_year - 1)
-                ax.plot(t, v, linestyle='solid', color=config["c_prev1"], linewidth=1.5)
-
-            # 4. Top Layer: Highlight Active Tracking System
-            if current_year in df_sub_circle.columns:
-                t, v = get_sub_loop_data(current_year)
-                ax.plot(t, v, color=config["c_current"], linewidth=2.5, zorder=10)
-
-                # Add explicit terminal dot marker endpoint matching tracker color
-                if len(t) > 0 and len(v) > 0:
-                    ax.plot(t[-1], v[-1], marker='o', markersize=5, color=config["c_current"],
-                            markeredgecolor=config["bg_face"], markeredgewidth=1, zorder=15)
-
-            # Clean subplot titles matching filter states
-            ax.set_title(f"{gender_cat} | {age_cat}", fontsize=11, fontweight='bold', color=config["title_color"], pad=14)
-
-    # Rebuild coordinated global legend elements matching theme maps
-    custom_legends = [
-        plt.Line2D([0], [0], color=config["history_color"], linewidth=1, label=f"Historical Baseline ({start_year}-{current_year-3})"),
-        plt.Line2D([0], [0], color=config["c_2020"], linewidth=1.5, label="2020 Pandemic Outbreak" if "Blog" in config["name"] else "2020 (COVID)"),
-        plt.Line2D([0], [0], color=config["c_2021"], linewidth=1.5, label="2021 Delta Wave" if "Blog" in config["name"] else "2021 (COVID)"),
-        plt.Line2D([0], [0], color=config["c_2022"], linewidth=1.5, label="2022 Omicron Shift" if "Blog" in config["name"] else "2022 (COVID)"),
-        plt.Line2D([0], [0], color=config["c_prev2"], linestyle='dotted', linewidth=1.5, label=f"{current_year - 2} Trend" if "Blog" in config["name"] else f"{current_year - 2}"),
-        plt.Line2D([0], [0], color=config["c_prev1"], linestyle='solid', linewidth=1.5, label=f"{current_year - 1} Trend" if "Blog" in config["name"] else f"{current_year - 1}"),
-        plt.Line2D([0], [0], color=config["c_current"], linewidth=2.5, label=f"Current Tracker ({current_year})" if "Blog" in config["name"] else f"{current_year}")
+    covid_labels = {**theme["covid_labels"], **theme.get("facet_covid_labels", {})}
+    handles = [plt.Line2D([0], [0], color=theme["history_color"], linewidth=1,
+                          label=f"Historical Baseline ({start_year}-{current_year - 3})")]
+    handles += [plt.Line2D([0], [0], color=theme["covid_colors"][y], linewidth=1.5,
+                           label=covid_labels[y]) for y in COVID_YEARS]
+    handles += [
+        plt.Line2D([0], [0], color=theme["c_prev2"], linestyle="dotted", linewidth=1.5,
+                   label=theme["prev_label"].format(year=current_year - 2)),
+        plt.Line2D([0], [0], color=theme["c_prev1"], linestyle="solid", linewidth=1.5,
+                   label=theme["prev_label"].format(year=current_year - 1)),
+        plt.Line2D([0], [0], color=theme["c_current"], linewidth=2.5,
+                   label=theme["current_label"].format(year=current_year)),
     ]
+    fig.legend(handles=handles, loc="lower center", ncol=4, frameon=True,
+               facecolor=theme["bg_face"], edgecolor=theme["grid_color"], fontsize=10,
+               bbox_to_anchor=(0.5, 0.02))
 
-    fig.legend(handles=custom_legends, loc='lower center', ncol=4, frameon=True,
-               facecolor=config["bg_face"], edgecolor=config["grid_color"], fontsize=10, bbox_to_anchor=(0.5, 0.02))
+    fig.suptitle("Weekly Mortality Breakdown Across Demographic Groups", fontsize=18,
+                 fontweight="bold", color=theme["title_color"], y=0.98)
+    fig.subplots_adjust(top=0.88, bottom=0.12, wspace=0.25, hspace=0.3)
+    save_figure(fig, f"naar_Geslacht_leeftijd{theme['file_suffix']}", theme, dpi=150)
 
-    fig.suptitle('Weekly Mortality Breakdown Across Demographic Groups', fontsize=18, fontweight='bold', color=config["title_color"], y=0.98)
-    plt.subplots_adjust(top=0.88, bottom=0.12, wspace=0.25, hspace=0.3)
 
-    # Save out both PNG and SVG targets for current color block index loop
-    for suffix in ['png', 'svg']:
-        plt.savefig(f"{config['file_suffix']}.{suffix}", dpi=300, bbox_inches='tight', facecolor=config["bg_canvas"])
-    plt.close()
+# ==========================================
+# MAIN
+# ==========================================
+def main():
+    df = load_deaths()
+    current_year = int(df["year"].max())
+    start_year = int(df["year"].min())
+    print(f"Analyzing complete historical range: {start_year} to {current_year}")
 
-print("All demographic layout matrix variants generated successfully!")
+    highlighted = {*COVID_YEARS, current_year - 2, current_year - 1, current_year}
+
+    # All curves are computed once and shared by every chart and theme.
+    total_pivot = week_year_pivot(df, TOTAL_SEX, TOTAL_AGE)
+    total_curves = all_curves(total_pivot, current_year)
+    stats = historical_stats(total_pivot, current_year)
+    facet_curves = {
+        (gender, age): all_curves(week_year_pivot(df, gender, age), current_year)
+        for gender in FACET_SEXES for age in FACET_AGES
+    }
+
+    for theme in (SCIENTIFIC, BLOG):
+        print(f"Generating overlay and median charts for: {theme['name']}...")
+        plot_overlay(theme, total_curves, highlighted, start_year, current_year)
+        plot_median(theme, total_curves, stats, current_year)
+
+    print("Rendering animation...")
+    render_animation(BLOG, total_curves, current_year)
+
+    for theme in (SCIENTIFIC, BLOG):
+        plot_facets(theme, facet_curves, highlighted, start_year, current_year)
+
+    print("All charts generated successfully!")
+
+
+if __name__ == "__main__":
+    main()

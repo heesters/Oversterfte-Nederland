@@ -1,26 +1,33 @@
-name: automated Python package
+name: Update graphs
+
 on:
   schedule:
     # * is a special character in YAML so you have to quote this string
-    - cron: '5 2 * * TUE,FRI' #runs at 2:05 UTC = 04:05 local (AMS) every Tuesday and Friday
+    - cron: '5 2 * * TUE,FRI' # 2:05 UTC = 04:05 local (AMS) every Tuesday and Friday
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-graphs
+  cancel-in-progress: false
+
 jobs:
   build:
-    runs-on: macos-latest
-    strategy:
-      matrix:
-        python-version: [3.14]
+    runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v6
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.14'
+          cache: pip
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install numpy pandas requests seaborn matplotlib
+        run: pip install -r requirements.txt
 
-      - name: execute py script
+      - name: Execute py script
         uses: nick-fields/retry@v4
         with:
           timeout_minutes: 15
@@ -28,10 +35,14 @@ jobs:
           retry_wait_seconds: 120
           command: python Overledenen.py
 
-      - name: Update graphs
+      - name: Commit graphs if they changed
         run: |
-          git config --global user.name 'heesters'
-          git config --global user.email 'heesters@users.noreply.github.com'
-          git add -A
-          git commit -m "Update graphs" || echo "Nothing to commit"
+          git add -- '*.png' '*.svg' '*.gif'
+          if git diff --cached --quiet; then
+            echo "No changes in graphs, nothing to commit."
+            exit 0
+          fi
+          git config user.name 'heesters'
+          git config user.email 'heesters@users.noreply.github.com'
+          git commit -m "Update graphs"
           git push
